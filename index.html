@@ -5,55 +5,65 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Modern Overtime Tracker</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="container">
 
     <!-- Header -->
-    <div class="header">
+    <div class="header fade-in">
       <div>
         <h1>Overtime Tracker</h1>
         <p class="subtitle">Track your daily overtime seamlessly</p>
       </div>
-      <button id="darkModeToggle" class="btn-secondary">🌙 Dark Mode</button>
+      <button id="darkModeToggle" class="btn-outline">
+        <i data-lucide="moon"></i> <span>Dark Mode</span>
+      </button>
     </div>
 
     <!-- Summary -->
-    <div class="summary-card">
+    <div class="summary-card fade-in" style="animation-delay: 0.1s;">
       <div class="summary-item">
-        <div class="label">Total Working Days</div>
+        <div class="label"><i data-lucide="calendar-days"></i> Total Working Days</div>
         <div class="value" id="totalRecords">0</div>
       </div>
       <div class="summary-item">
-        <div class="label">Total Overtime</div>
+        <div class="label"><i data-lucide="clock"></i> Total Overtime</div>
         <div class="value" id="totalOvertime">00:00</div>
       </div>
     </div>
 
     <!-- Controls / Filters -->
-    <div class="controls-section">
+    <div class="controls-section fade-in" style="animation-delay: 0.2s;">
       <div class="filters">
-        <select id="monthFilter"></select>
-        <select id="yearFilter"></select>
+        <div class="select-wrapper">
+          <select id="monthFilter"></select>
+          <i data-lucide="chevron-down" class="select-icon"></i>
+        </div>
+        <div class="select-wrapper">
+          <select id="yearFilter"></select>
+          <i data-lucide="chevron-down" class="select-icon"></i>
+        </div>
       </div>
       <div class="actions">
-        <button id="exportCsv" class="btn-secondary">Export CSV</button>
-        <label class="btn-secondary">
-          Import CSV
+        <button id="exportCsv" class="btn-outline"><i data-lucide="download"></i> Export CSV</button>
+        <label class="btn-outline cursor-pointer">
+          <i data-lucide="upload"></i> Import CSV
           <input type="file" id="importCsv" accept=".csv" hidden>
         </label>
-        <button id="backupJson" class="btn-secondary">Backup JSON</button>
-        <label class="btn-secondary">
-          Restore JSON
+        <button id="backupJson" class="btn-outline"><i data-lucide="database"></i> Backup</button>
+        <label class="btn-outline cursor-pointer">
+          <i data-lucide="refresh-cw"></i> Restore
           <input type="file" id="restoreJson" accept=".json" hidden>
         </label>
       </div>
     </div>
 
     <!-- Form -->
-    <div class="card">
-      <h2 class="card-title">Add / Edit Record</h2>
+    <div class="card fade-in" style="animation-delay: 0.3s;">
+      <h2 class="card-title"><i data-lucide="plus-circle"></i> Add / Edit Record</h2>
       <form id="otForm">
         <div class="form-grid">
           <div class="form-group">
@@ -70,24 +80,24 @@
           </div>
           <div class="form-group">
             <label>Day</label>
-            <input type="text" id="dayName" readonly>
+            <input type="text" id="dayName" readonly placeholder="Auto-filled">
           </div>
         </div>
 
-        <div class="form-group" style="margin-top: 16px;">
+        <div class="form-group" style="margin-top: 20px;">
           <label>Notes (Optional)</label>
           <input type="text" id="notes" placeholder="Enter any notes here...">
         </div>
 
         <div class="form-actions">
-          <button type="submit" class="btn-primary">Save Record</button>
-          <button type="button" id="clearBtn" class="btn-secondary">Clear Form</button>
+          <button type="submit" class="btn-primary"><i data-lucide="save"></i> Save Record</button>
+          <button type="button" id="clearBtn" class="btn-ghost"><i data-lucide="x"></i> Clear Form</button>
         </div>
       </form>
     </div>
 
     <!-- Table -->
-    <div class="card table-card">
+    <div class="card table-card fade-in" style="animation-delay: 0.4s;">
       <div class="table-wrapper">
         <table id="recordsTable">
           <thead>
