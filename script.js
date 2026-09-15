@@ -57,7 +57,7 @@ function formatDateToDDMMYYYY(dateString) {
 }
 
 // ──────────────────────────────────────────
-// RENDER TABLE
+// RENDER TABLE WITH STAGGERED ANIMATION
 // ──────────────────────────────────────────
 function renderRecords(filteredRecords) {
   const tbody = document.getElementById('recordsBody');
@@ -73,15 +73,15 @@ function renderRecords(filteredRecords) {
     const formattedDate = formatDateToDDMMYYYY(record.date);
 
     const row = document.createElement('tr');
-    // Staggered animation effect for rows
-    row.style.animationDelay = `${index * 0.05}s`;
+    // 🌟 Added Domino-style staggered animation delay based on row index
+    row.style.animationDelay = `${index * 0.08}s`;
     
     row.innerHTML = `
       <td><strong>${formattedDate}</strong></td>
       <td>${dayName}</td>
       <td>${formatTimeDisplay(record.clockIn)}</td>
       <td>${formatTimeDisplay(record.clockOut)}</td>
-      <td style="font-weight: 600;">${formatHHMM(ot.total)}</td>
+      <td style="font-weight: 600; color: var(--primary);">${formatHHMM(ot.total)}</td>
       <td style="color: var(--muted);">${record.notes || '-'}</td>
       <td style="text-align: right;">
         <button class="action-btn" title="Edit" onclick="editRecord('${record.id}')">
@@ -281,7 +281,7 @@ function init() {
 
   filterRecords();
   updateDarkModeButton();
-  lucide.createIcons(); // Initialize icons on first load
+  lucide.createIcons(); 
 }
 
 init();
