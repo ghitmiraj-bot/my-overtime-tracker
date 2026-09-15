@@ -12,9 +12,7 @@ function saveToStorage() {
 // 9-HOUR OVERTIME CALCULATION
 // ──────────────────────────────────────────
 function calculateOT(record) {
-  if (!record.clockIn || !record.clockOut) {
-    return { total: 0 };
-  }
+  if (!record.clockIn || !record.clockOut) return { total: 0 };
 
   const inParts = record.clockIn.split(':').map(Number);
   const outParts = record.clockOut.split(':').map(Number);
@@ -22,19 +20,15 @@ function calculateOT(record) {
   let inMinutes = inParts[0] * 60 + inParts[1];
   let outMinutes = outParts[0] * 60 + outParts[1];
 
-  // Handle overnight shift (if clock out is past midnight)
-  if (outMinutes < inMinutes) {
-    outMinutes += 24 * 60;
-  }
+  if (outMinutes < inMinutes) outMinutes += 24 * 60; // Overnight shift
 
   const totalWorkedMinutes = outMinutes - inMinutes;
-  const requiredMinutes = 9 * 60; // 9 hours of duty
+  const requiredMinutes = 9 * 60; 
 
   let otTotal = 0;
   if (totalWorkedMinutes > requiredMinutes) {
     otTotal = totalWorkedMinutes - requiredMinutes;
   }
-
   return { total: otTotal };
 }
 
@@ -55,6 +49,13 @@ function formatTimeDisplay(timeStr) {
   return hour12 + ':' + String(m).padStart(2, '0') + ' ' + period;
 }
 
+// Convert YYYY-MM-DD to DD-MM-YYYY
+function formatDateToDDMMYYYY(dateString) {
+  if (!dateString) return '';
+  const [year, month, day] = dateString.split('-');
+  return `${day}-${month}-${year}`;
+}
+
 // ──────────────────────────────────────────
 // RENDER TABLE
 // ──────────────────────────────────────────
@@ -64,36 +65,46 @@ function renderRecords(filteredRecords) {
 
   let grandTotalMinutes = 0;
 
-  filteredRecords.forEach(record => {
+  filteredRecords.forEach((record, index) => {
     const ot = calculateOT(record);
     grandTotalMinutes += ot.total;
 
     const dayName = new Date(record.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' });
+    const formattedDate = formatDateToDDMMYYYY(record.date);
 
     const row = document.createElement('tr');
+    // Staggered animation effect for rows
+    row.style.animationDelay = `${index * 0.05}s`;
+    
     row.innerHTML = `
-      <td><strong>${record.date}</strong></td>
+      <td><strong>${formattedDate}</strong></td>
       <td>${dayName}</td>
       <td>${formatTimeDisplay(record.clockIn)}</td>
       <td>${formatTimeDisplay(record.clockOut)}</td>
-      <td style="color: var(--primary); font-weight: 600;">${formatHHMM(ot.total)}</td>
-      <td style="color: var(--text-muted);">${record.notes || '-'}</td>
+      <td style="font-weight: 600;">${formatHHMM(ot.total)}</td>
+      <td style="color: var(--muted);">${record.notes || '-'}</td>
       <td style="text-align: right;">
-        <button class="action-btn" onclick="editRecord('${record.id}')">Edit</button>
-        <button class="action-btn delete-btn" onclick="deleteRecord('${record.id}')">Delete</button>
+        <button class="action-btn" title="Edit" onclick="editRecord('${record.id}')">
+          <i data-lucide="pencil"></i>
+        </button>
+        <button class="action-btn delete-btn" title="Delete" onclick="deleteRecord('${record.id}')">
+          <i data-lucide="trash-2"></i>
+        </button>
       </td>
     `;
     tbody.appendChild(row);
   });
 
-  // Update Footer Grand Total & Cards
   document.getElementById('grandTotalCell').innerHTML = '<strong>' + formatHHMM(grandTotalMinutes) + '</strong>';
   document.getElementById('totalRecords').textContent = filteredRecords.length;
   document.getElementById('totalOvertime').textContent = formatHHMM(grandTotalMinutes);
+
+  // Initialize Icons for new elements
+  lucide.createIcons();
 }
 
 // ──────────────────────────────────────────
-// FILTERS (Default to Current Month)
+// FILTERS
 // ──────────────────────────────────────────
 function updateFilters() {
   const monthSelect = document.getElementById('monthFilter');
@@ -124,9 +135,7 @@ function filterRecords() {
     return monthMatch && yearMatch;
   });
 
-  // Sort by date ascending
   filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
-
   renderRecords(filtered);
 }
 
@@ -158,9 +167,8 @@ function handleFormSubmit(e) {
   }
 
   saveToStorage();
-  updateFilters(); // Refresh years list if new year added
+  updateFilters(); 
   
-  // Set filter to the month/year of the saved record so user can see it instantly
   const [y, m] = record.date.split('-');
   document.getElementById('monthFilter').value = parseInt(m);
   document.getElementById('yearFilter').value = y;
@@ -202,7 +210,8 @@ document.getElementById('exportCsv').addEventListener('click', () => {
   records.forEach(r => {
     const ot = calculateOT(r);
     const dayName = new Date(r.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' });
-    rows.push([r.date, dayName, formatTimeDisplay(r.clockIn), formatTimeDisplay(r.clockOut), formatHHMM(ot.total), '"' + (r.notes || '').replace(/"/g, '""') + '"']);
+    const formattedDate = formatDateToDDMMYYYY(r.date);
+    rows.push([formattedDate, dayName, formatTimeDisplay(r.clockIn), formatTimeDisplay(r.clockOut), formatHHMM(ot.total), '"' + (r.notes || '').replace(/"/g, '""') + '"']);
   });
 
   const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -239,13 +248,19 @@ document.getElementById('restoreJson').addEventListener('change', (e) => {
 const darkModeBtn = document.getElementById('darkModeToggle');
 if (localStorage.getItem('otDarkMode') === 'true') document.documentElement.classList.add('dark');
 
+function updateDarkModeButton() {
+  const isDark = document.documentElement.classList.contains('dark');
+  darkModeBtn.innerHTML = isDark 
+    ? '<i data-lucide="sun"></i> <span>Light Mode</span>' 
+    : '<i data-lucide="moon"></i> <span>Dark Mode</span>';
+  lucide.createIcons();
+}
+
 darkModeBtn.addEventListener('click', () => {
   document.documentElement.classList.toggle('dark');
-  const isDark = document.documentElement.classList.contains('dark');
-  localStorage.setItem('otDarkMode', isDark);
-  darkModeBtn.textContent = isDark ? '☀️ Light Mode' : '🌙 Dark Mode';
+  localStorage.setItem('otDarkMode', document.documentElement.classList.contains('dark'));
+  updateDarkModeButton();
 });
-if (document.documentElement.classList.contains('dark')) darkModeBtn.textContent = '☀️ Light Mode';
 
 document.getElementById('clearBtn').addEventListener('click', () => {
   document.getElementById('otForm').reset();
@@ -260,12 +275,13 @@ function init() {
   document.getElementById('otForm').addEventListener('submit', handleFormSubmit);
   updateFilters();
 
-  // Set default to current month and year on load
   const now = new Date();
   document.getElementById('monthFilter').value = now.getMonth() + 1;
   document.getElementById('yearFilter').value = now.getFullYear();
 
   filterRecords();
+  updateDarkModeButton();
+  lucide.createIcons(); // Initialize icons on first load
 }
 
 init();
