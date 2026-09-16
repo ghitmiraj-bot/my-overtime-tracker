@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────
-// SUPABASE CONFIGURATION
+// ১. SUPABASE CONFIGURATION (এই দুটি লাইন পরিবর্তন করুন)
 // ──────────────────────────────────────────
 const SUPABASE_URL = 'https://qinayntexlzgpxihdutm.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFpbmF5bnRleGx6Z3B4aWhkdXRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1NjI2NjAsImV4cCI6MjEwNTEzODY2MH0.rarroAzcFRpHgWado6Rz5fEI8t4gPhgBieddnchk924';
@@ -10,7 +10,7 @@ let records = [];
 let editingId = null;
 
 // ──────────────────────────────────────────
-// AUTHENTICATION LOGIC
+// ২. AUTHENTICATION LOGIC (লগইন ও সাইন আপ)
 // ──────────────────────────────────────────
 const authContainer = document.getElementById('authContainer');
 const appContainer = document.getElementById('appContainer');
@@ -27,21 +27,42 @@ async function handleAuth(action) {
     return;
   }
 
-  const { data, error } = action === 'login' 
-    ? await supabase.auth.signInWithPassword({ email, password })
-    : await supabase.auth.signUp({ email, password });
+  // বাটন ক্লিক করার পর প্রসেসিং বোঝানোর জন্য
+  authError.textContent = 'Processing... Please wait.';
+  authError.style.color = '#6366f1';
+  authError.style.display = 'block';
 
-  if (error) {
-    authError.textContent = error.message;
-    authError.style.display = 'block';
+  try {
+    const { data, error } = action === 'login' 
+      ? await supabase.auth.signInWithPassword({ email, password })
+      : await supabase.auth.signUp({ email, password });
+
+    if (error) throw error;
+
+    if (action === 'signUp') {
+       authError.textContent = 'Signup successful! You can now login.';
+       authError.style.color = '#22c55e';
+    }
+
+  } catch (err) {
+    authError.textContent = err.message || 'An error occurred. Check your URL/Key.';
+    authError.style.color = '#ef4444';
   }
 }
 
 document.getElementById('loginBtn').addEventListener('click', () => handleAuth('login'));
 document.getElementById('registerBtn').addEventListener('click', () => handleAuth('signUp'));
-document.getElementById('logoutBtn').addEventListener('click', () => supabase.auth.signOut());
 
-// Listen for Login/Logout state changes
+// এন্টার চাপলে লগইন হওয়ার জন্য
+document.getElementById('passwordInput').addEventListener('keypress', function (e) {
+  if (e.key === 'Enter') handleAuth('login');
+});
+
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  await supabase.auth.signOut();
+});
+
+// লগইন/লগআউট অবস্থা চেক করা
 supabase.auth.onAuthStateChange(async (event, session) => {
   if (session) {
     currentUser = session.user;
@@ -58,16 +79,22 @@ supabase.auth.onAuthStateChange(async (event, session) => {
 });
 
 // ──────────────────────────────────────────
-// CLOUD DATABASE LOGIC
+// ৩. CLOUD DATABASE LOGIC (ডেটাবেসে সেভ ও ফেচ করা)
 // ──────────────────────────────────────────
 async function fetchRecords() {
-  const { data, error } = await supabase.from('ot_records').select('*').order('date', { ascending: true });
+  const { data, error } = await supabase
+    .from('ot_records')
+    .select('*')
+    .order('date', { ascending: true });
+    
   if (data) {
     records = data.map(d => ({
       id: d.id, date: d.date, clockIn: d.clockin, clockOut: d.clockout, notes: d.notes
     }));
     updateFilters();
     filterRecords();
+  } else if (error) {
+    console.error("Error fetching records:", error);
   }
 }
 
@@ -80,65 +107,17 @@ async function saveToDatabase(record) {
     clockout: record.clockOut,
     notes: record.notes
   };
-  await supabase.from('ot_records').upsert(dbRecord);
+  const { error } = await supabase.from('ot_records').upsert(dbRecord);
+  if (error) console.error("Error saving:", error);
 }
 
 async function deleteFromDatabase(id) {
-  await supabase.from('ot_records').delete().eq('id', id);
+  const { error } = await supabase.from('ot_records').delete().eq('id', id);
+  if (error) console.error("Error deleting:", error);
 }
 
 // ──────────────────────────────────────────
-// UPDATE EXISTING CRUD FUNCTIONS
-// ──────────────────────────────────────────
-async function handleFormSubmit(e) {
-  e.preventDefault();
-  const record = {
-    id: editingId || Date.now().toString(),
-    date: document.getElementById('date').value,
-    clockIn: document.getElementById('clockIn').value,
-    clockOut: document.getElementById('clockOut').value,
-    notes: document.getElementById('notes').value
-  };
-
-  if (editingId) {
-    const index = records.findIndex(r => r.id === editingId);
-    records[index] = record;
-    editingId = null;
-  } else {
-    records.push(record);
-  }
-
-  await saveToDatabase(record); // Saved to Cloud
-  updateFilters(); 
-  
-  const [y, m] = record.date.split('-');
-  document.getElementById('monthFilter').value = parseInt(m);
-  document.getElementById('yearFilter').value = y;
-  
-  filterRecords();
-  e.target.reset();
-  document.getElementById('dayName').value = '';
-}
-
-async function deleteRecord(id) {
-  if (confirm('Are you sure you want to delete this record?')) {
-    records = records.filter(r => r.id !== id);
-    await deleteFromDatabase(id); // Deleted from Cloud
-    filterRecords();
-  }
-}
-// ──────────────────────────────────────────
-// DATA & STORAGE
-// ──────────────────────────────────────────
-let records = JSON.parse(localStorage.getItem('otRecords')) || [];
-let editingId = null;
-
-function saveToStorage() {
-  localStorage.setItem('otRecords', JSON.stringify(records));
-}
-
-// ──────────────────────────────────────────
-// 9-HOUR OVERTIME CALCULATION
+// ৪. OVERTIME CALCULATION (৯ ঘণ্টার হিসাব)
 // ──────────────────────────────────────────
 function calculateOT(record) {
   if (!record.clockIn || !record.clockOut) return { total: 0 };
@@ -149,7 +128,7 @@ function calculateOT(record) {
   let inMinutes = inParts[0] * 60 + inParts[1];
   let outMinutes = outParts[0] * 60 + outParts[1];
 
-  if (outMinutes < inMinutes) outMinutes += 24 * 60; // Overnight shift
+  if (outMinutes < inMinutes) outMinutes += 24 * 60; // রাতের শিফটের জন্য
 
   const totalWorkedMinutes = outMinutes - inMinutes;
   const requiredMinutes = 9 * 60; 
@@ -162,7 +141,7 @@ function calculateOT(record) {
 }
 
 // ──────────────────────────────────────────
-// FORMATTING
+// ৫. FORMATTING
 // ──────────────────────────────────────────
 function formatHHMM(totalMinutes) {
   const h = Math.floor(totalMinutes / 60);
@@ -178,7 +157,6 @@ function formatTimeDisplay(timeStr) {
   return hour12 + ':' + String(m).padStart(2, '0') + ' ' + period;
 }
 
-// Convert YYYY-MM-DD to DD-MM-YYYY
 function formatDateToDDMMYYYY(dateString) {
   if (!dateString) return '';
   const [year, month, day] = dateString.split('-');
@@ -186,12 +164,13 @@ function formatDateToDDMMYYYY(dateString) {
 }
 
 // ──────────────────────────────────────────
-// RENDER TABLE WITH STAGGERED ANIMATION
+// ৬. RENDER TABLE (টেবিল দেখানো)
 // ──────────────────────────────────────────
 function renderRecords(filteredRecords) {
   const tbody = document.getElementById('recordsBody');
+  if (!tbody) return;
+  
   tbody.innerHTML = '';
-
   let grandTotalMinutes = 0;
 
   filteredRecords.forEach((record, index) => {
@@ -202,7 +181,6 @@ function renderRecords(filteredRecords) {
     const formattedDate = formatDateToDDMMYYYY(record.date);
 
     const row = document.createElement('tr');
-    // 🌟 Added Domino-style staggered animation delay based on row index
     row.style.animationDelay = `${index * 0.08}s`;
     
     row.innerHTML = `
@@ -228,19 +206,18 @@ function renderRecords(filteredRecords) {
   document.getElementById('totalRecords').textContent = filteredRecords.length;
   document.getElementById('totalOvertime').textContent = formatHHMM(grandTotalMinutes);
 
-  // Initialize Icons for new elements
   lucide.createIcons();
 }
 
 // ──────────────────────────────────────────
-// FILTERS
+// ৭. FILTERS (মাস ও বছর ফিল্টার)
 // ──────────────────────────────────────────
 function updateFilters() {
   const monthSelect = document.getElementById('monthFilter');
   const yearSelect = document.getElementById('yearFilter');
+  if(!monthSelect || !yearSelect) return;
 
   const months = ['All Months', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-
   monthSelect.innerHTML = months.map((m, i) => `<option value="${i === 0 ? '' : i}">${m}</option>`).join('');
 
   const currentYear = new Date().getFullYear().toString();
@@ -254,8 +231,12 @@ function updateFilters() {
 }
 
 function filterRecords() {
-  const month = document.getElementById('monthFilter').value;
-  const year = document.getElementById('yearFilter').value;
+  const monthSelect = document.getElementById('monthFilter');
+  const yearSelect = document.getElementById('yearFilter');
+  if(!monthSelect) return;
+
+  const month = monthSelect.value;
+  const year = yearSelect.value;
 
   const filtered = records.filter(r => {
     const [y, m] = r.date.split('-');
@@ -269,15 +250,22 @@ function filterRecords() {
 }
 
 // ──────────────────────────────────────────
-// FORM HANDLING
+// ৮. FORM HANDLING & CRUD
 // ──────────────────────────────────────────
-document.getElementById('date').addEventListener('change', (e) => {
-  const dateVal = e.target.value;
-  document.getElementById('dayName').value = dateVal ? new Date(dateVal + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' }) : '';
-});
+const dateInput = document.getElementById('date');
+if(dateInput) {
+  dateInput.addEventListener('change', (e) => {
+    const dateVal = e.target.value;
+    document.getElementById('dayName').value = dateVal ? new Date(dateVal + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' }) : '';
+  });
+}
 
-function handleFormSubmit(e) {
+async function handleFormSubmit(e) {
   e.preventDefault();
+  if(!currentUser) {
+    alert("Please login first!");
+    return;
+  }
 
   const record = {
     id: editingId || Date.now().toString(),
@@ -289,25 +277,27 @@ function handleFormSubmit(e) {
 
   if (editingId) {
     const index = records.findIndex(r => r.id === editingId);
-    records[index] = record;
+    if(index !== -1) records[index] = record;
     editingId = null;
   } else {
     records.push(record);
   }
 
-  saveToStorage();
+  // সাথে সাথে UI আপডেট করার জন্য
   updateFilters(); 
-  
   const [y, m] = record.date.split('-');
   document.getElementById('monthFilter').value = parseInt(m);
   document.getElementById('yearFilter').value = y;
-  
   filterRecords();
+  
   e.target.reset();
   document.getElementById('dayName').value = '';
+
+  // ব্যাকগ্রাউন্ডে ক্লাউডে সেভ করা
+  await saveToDatabase(record); 
 }
 
-function editRecord(id) {
+window.editRecord = function(id) {
   const record = records.find(r => r.id === id);
   if (!record) return;
 
@@ -321,96 +311,78 @@ function editRecord(id) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function deleteRecord(id) {
+window.deleteRecord = async function(id) {
   if (confirm('Are you sure you want to delete this record?')) {
     records = records.filter(r => r.id !== id);
-    saveToStorage();
-    filterRecords();
+    filterRecords(); 
+    await deleteFromDatabase(id); 
   }
 }
 
 // ──────────────────────────────────────────
-// EXPORT / IMPORT / BACKUP
-// ──────────────────────────────────────────
-document.getElementById('exportCsv').addEventListener('click', () => {
-  const headers = ['Date', 'Day', 'Clock In', 'Clock Out', 'Total OT', 'Notes'];
-  const rows = [];
-  
-  records.forEach(r => {
-    const ot = calculateOT(r);
-    const dayName = new Date(r.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' });
-    const formattedDate = formatDateToDDMMYYYY(r.date);
-    rows.push([formattedDate, dayName, formatTimeDisplay(r.clockIn), formatTimeDisplay(r.clockOut), formatHHMM(ot.total), '"' + (r.notes || '').replace(/"/g, '""') + '"']);
-  });
-
-  const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-  const blob = new Blob([csvContent], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'overtime-records.csv'; a.click(); URL.revokeObjectURL(url);
-});
-
-document.getElementById('backupJson').addEventListener('click', () => {
-  const blob = new Blob([JSON.stringify(records, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'overtime-backup.json'; a.click(); URL.revokeObjectURL(url);
-});
-
-document.getElementById('restoreJson').addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    try {
-      records = JSON.parse(ev.target.result);
-      saveToStorage(); updateFilters(); filterRecords();
-      alert('Backup restored successfully!');
-    } catch (err) { alert('Invalid JSON file.'); }
-  };
-  reader.readAsText(file); e.target.value = '';
-});
-
-// ──────────────────────────────────────────
-// DARK MODE
+// ৯. DARK MODE & EXPORT
 // ──────────────────────────────────────────
 const darkModeBtn = document.getElementById('darkModeToggle');
 if (localStorage.getItem('otDarkMode') === 'true') document.documentElement.classList.add('dark');
 
 function updateDarkModeButton() {
+  if(!darkModeBtn) return;
   const isDark = document.documentElement.classList.contains('dark');
-  darkModeBtn.innerHTML = isDark 
-    ? '<i data-lucide="sun"></i> <span>Light Mode</span>' 
-    : '<i data-lucide="moon"></i> <span>Dark Mode</span>';
+  darkModeBtn.innerHTML = isDark ? '<i data-lucide="sun"></i>' : '<i data-lucide="moon"></i>';
   lucide.createIcons();
 }
 
-darkModeBtn.addEventListener('click', () => {
-  document.documentElement.classList.toggle('dark');
-  localStorage.setItem('otDarkMode', document.documentElement.classList.contains('dark'));
-  updateDarkModeButton();
-});
-
-document.getElementById('clearBtn').addEventListener('click', () => {
-  document.getElementById('otForm').reset();
-  document.getElementById('dayName').value = '';
-  editingId = null;
-});
-
-// ──────────────────────────────────────────
-// INIT
-// ──────────────────────────────────────────
-function init() {
-  document.getElementById('otForm').addEventListener('submit', handleFormSubmit);
-  updateFilters();
-
-  const now = new Date();
-  document.getElementById('monthFilter').value = now.getMonth() + 1;
-  document.getElementById('yearFilter').value = now.getFullYear();
-
-  filterRecords();
-  updateDarkModeButton();
-  lucide.createIcons(); 
+if(darkModeBtn) {
+  darkModeBtn.addEventListener('click', () => {
+    document.documentElement.classList.toggle('dark');
+    localStorage.setItem('otDarkMode', document.documentElement.classList.contains('dark'));
+    updateDarkModeButton();
+  });
 }
 
-init();
+const clearBtn = document.getElementById('clearBtn');
+if(clearBtn) {
+  clearBtn.addEventListener('click', () => {
+    document.getElementById('otForm').reset();
+    document.getElementById('dayName').value = '';
+    editingId = null;
+  });
+}
+
+const exportCsvBtn = document.getElementById('exportCsv');
+if(exportCsvBtn) {
+  exportCsvBtn.addEventListener('click', () => {
+    const headers = ['Date', 'Day', 'Clock In', 'Clock Out', 'Total OT', 'Notes'];
+    const rows = [];
+    records.forEach(r => {
+      const ot = calculateOT(r);
+      const dayName = new Date(r.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+      const formattedDate = formatDateToDDMMYYYY(r.date);
+      rows.push([formattedDate, dayName, formatTimeDisplay(r.clockIn), formatTimeDisplay(r.clockOut), formatHHMM(ot.total), '"' + (r.notes || '').replace(/"/g, '""') + '"']);
+    });
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'overtime-records.csv'; a.click(); URL.revokeObjectURL(url);
+  });
+}
+
+// Initialization
+function init() {
+  const otForm = document.getElementById('otForm');
+  if(otForm) otForm.addEventListener('submit', handleFormSubmit);
+  
+  updateDarkModeButton();
+  lucide.createIcons();
+  
+  const now = new Date();
+  const monthFilter = document.getElementById('monthFilter');
+  const yearFilter = document.getElementById('yearFilter');
+  if(monthFilter && yearFilter) {
+      monthFilter.value = now.getMonth() + 1;
+      yearFilter.value = now.getFullYear();
+  }
+}
+
+document.addEventListener('DOMContentLoaded', init);
