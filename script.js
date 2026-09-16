@@ -385,9 +385,12 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
         const now = new Date();
         const monthFilter = document.getElementById('monthFilter');
         const yearFilter = document.getElementById('yearFilter');
-        if(monthFilter && yearFilter) {
-            monthFilter.value = now.getMonth() + 1;
-            yearFilter.value = now.getFullYear();
+        if (monthFilter && yearFilter) {
+            monthFilter.value = String(now.getMonth() + 1);
+            yearFilter.value = String(now.getFullYear());
+        
+            // Default হিসেবে বর্তমান মাসের রিপোর্ট দেখাবে
+            filterRecords();
         }
       }
       
