@@ -14,9 +14,10 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
       let currentUser = null;
       let records = [];
       let editingId = null;
+      let isInitialLoad = true; // অ্যাপ ওপেন হওয়ার পর রানিং মাস দেখানোর ফ্ল্যাগ
       
       // ──────────────────────────────────────────
-      // ২. AUTHENTICATION LOGIC (লগইন ও সাইন আপ)
+      // ২. AUTHENTICATION LOGIC
       // ──────────────────────────────────────────
       const authContainer = document.getElementById('authContainer');
       const appContainer = document.getElementById('appContainer');
@@ -33,7 +34,6 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
           return;
         }
       
-        // বাটন ক্লিক করার পর প্রসেসিং বোঝানোর জন্য
         authError.textContent = 'Processing... Please wait.';
         authError.style.color = '#6366f1';
         authError.style.display = 'block';
@@ -59,7 +59,6 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
       document.getElementById('loginBtn').addEventListener('click', () => handleAuth('login'));
       document.getElementById('registerBtn').addEventListener('click', () => handleAuth('signUp'));
       
-      // এন্টার চাপলে লগইন হওয়ার জন্য
       document.getElementById('passwordInput').addEventListener('keypress', function (e) {
         if (e.key === 'Enter') handleAuth('login');
       });
@@ -68,10 +67,10 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
         await supabase.auth.signOut();
       });
       
-      // লগইন/লগআউট অবস্থা চেক করা
       supabase.auth.onAuthStateChange(async (event, session) => {
         if (session) {
           currentUser = session.user;
+          isInitialLoad = true; // লগইন করলে ফ্ল্যাগ রিসেট হবে
           authContainer.style.display = 'none';
           appContainer.style.display = 'block';
           document.getElementById('userWelcome').textContent = `Logged in as: ${currentUser.email}`;
@@ -85,7 +84,7 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
       });
       
       // ──────────────────────────────────────────
-      // ৩. CLOUD DATABASE LOGIC (ডেটাবেসে সেভ ও ফেচ করা)
+      // ৩. CLOUD DATABASE LOGIC
       // ──────────────────────────────────────────
       async function fetchRecords() {
         const { data, error } = await supabase
@@ -97,7 +96,17 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
           records = data.map(d => ({
             id: d.id, date: d.date, clockIn: d.clockin, clockOut: d.clockout, notes: d.notes
           }));
+          
           updateFilters();
+      
+          // অ্যাপ ওপেন করার সাথে সাথে বর্তমান মাস ও বছর সিলেক্ট করা
+          if (isInitialLoad) {
+            const now = new Date();
+            document.getElementById('monthFilter').value = now.getMonth() + 1;
+            document.getElementById('yearFilter').value = now.getFullYear();
+            isInitialLoad = false; // একবার লোড হওয়ার পর অফ করে দেওয়া
+          }
+      
           filterRecords();
         } else if (error) {
           console.error("Error fetching records:", error);
@@ -134,7 +143,7 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
         let inMinutes = inParts[0] * 60 + inParts[1];
         let outMinutes = outParts[0] * 60 + outParts[1];
       
-        if (outMinutes < inMinutes) outMinutes += 24 * 60; // রাতের শিফটের জন্য
+        if (outMinutes < inMinutes) outMinutes += 24 * 60; 
       
         const totalWorkedMinutes = outMinutes - inMinutes;
         const requiredMinutes = 9 * 60; 
@@ -170,7 +179,7 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
       }
       
       // ──────────────────────────────────────────
-      // ৬. RENDER TABLE (টেবিল দেখানো)
+      // ৬. RENDER TABLE
       // ──────────────────────────────────────────
       function renderRecords(filteredRecords) {
         const tbody = document.getElementById('recordsBody');
@@ -216,21 +225,29 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
       }
       
       // ──────────────────────────────────────────
-      // ৭. FILTERS (মাস ও বছর ফিল্টার)
+      // ৭. FILTERS (আপডেটেড লজিক)
       // ──────────────────────────────────────────
       function updateFilters() {
         const monthSelect = document.getElementById('monthFilter');
         const yearSelect = document.getElementById('yearFilter');
         if(!monthSelect || !yearSelect) return;
       
+        // ইউজার আগে যা সিলেক্ট করেছিল, তা সংরক্ষণ করা
+        const currentMonth = monthSelect.value;
+        const currentYear = yearSelect.value;
+      
         const months = ['All Months', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
         monthSelect.innerHTML = months.map((m, i) => `<option value="${i === 0 ? '' : i}">${m}</option>`).join('');
       
-        const currentYear = new Date().getFullYear().toString();
+        const currentYearDate = new Date().getFullYear().toString();
         const recordYears = records.map(r => r.date.split('-')[0]);
-        const years = [...new Set([...recordYears, currentYear])].sort();
+        const years = [...new Set([...recordYears, currentYearDate])].sort();
         
         yearSelect.innerHTML = '<option value="">All Years</option>' + years.map(y => `<option value="${y}">${y}</option>`).join('');
+      
+        // সংরক্ষিত মাস ও বছর পুনরায় সেট করা
+        if (currentMonth !== undefined) monthSelect.value = currentMonth;
+        if (currentYear !== undefined) yearSelect.value = currentYear;
       
         monthSelect.onchange = filterRecords;
         yearSelect.onchange = filterRecords;
@@ -256,7 +273,7 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
       }
       
       // ──────────────────────────────────────────
-      // ৮. FORM HANDLING & CRUD
+      // ৮. FORM HANDLING
       // ──────────────────────────────────────────
       const dateInput = document.getElementById('date');
       if(dateInput) {
@@ -289,17 +306,16 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
           records.push(record);
         }
       
-        // সাথে সাথে UI আপডেট করার জন্য
         updateFilters(); 
+        
         const [y, m] = record.date.split('-');
         document.getElementById('monthFilter').value = parseInt(m);
         document.getElementById('yearFilter').value = y;
-        filterRecords();
         
+        filterRecords();
         e.target.reset();
         document.getElementById('dayName').value = '';
       
-        // ব্যাকগ্রাউন্ডে ক্লাউডে সেভ করা
         await saveToDatabase(record); 
       }
       
@@ -381,17 +397,6 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
         
         updateDarkModeButton();
         lucide.createIcons();
-        
-        const now = new Date();
-        const monthFilter = document.getElementById('monthFilter');
-        const yearFilter = document.getElementById('yearFilter');
-        if (monthFilter && yearFilter) {
-            monthFilter.value = String(now.getMonth() + 1);
-            yearFilter.value = String(now.getFullYear());
-        
-            // Default হিসেবে বর্তমান মাসের রিপোর্ট দেখাবে
-            filterRecords();
-        }
       }
       
       document.addEventListener('DOMContentLoaded', init);
