@@ -1,4 +1,133 @@
 // ──────────────────────────────────────────
+// SUPABASE CONFIGURATION
+// ──────────────────────────────────────────
+const SUPABASE_URL = 'এখানে_আপনার_প্রজেক্টের_URL_দিন';
+const SUPABASE_ANON_KEY = 'এখানে_আপনার_ANON_KEY_দিন';
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let currentUser = null;
+let records = [];
+let editingId = null;
+
+// ──────────────────────────────────────────
+// AUTHENTICATION LOGIC
+// ──────────────────────────────────────────
+const authContainer = document.getElementById('authContainer');
+const appContainer = document.getElementById('appContainer');
+const authError = document.getElementById('authError');
+
+async function handleAuth(action) {
+  const email = document.getElementById('emailInput').value;
+  const password = document.getElementById('passwordInput').value;
+  authError.style.display = 'none';
+
+  if (!email || !password) {
+    authError.textContent = 'Please enter email and password';
+    authError.style.display = 'block';
+    return;
+  }
+
+  const { data, error } = action === 'login' 
+    ? await supabase.auth.signInWithPassword({ email, password })
+    : await supabase.auth.signUp({ email, password });
+
+  if (error) {
+    authError.textContent = error.message;
+    authError.style.display = 'block';
+  }
+}
+
+document.getElementById('loginBtn').addEventListener('click', () => handleAuth('login'));
+document.getElementById('registerBtn').addEventListener('click', () => handleAuth('signUp'));
+document.getElementById('logoutBtn').addEventListener('click', () => supabase.auth.signOut());
+
+// Listen for Login/Logout state changes
+supabase.auth.onAuthStateChange(async (event, session) => {
+  if (session) {
+    currentUser = session.user;
+    authContainer.style.display = 'none';
+    appContainer.style.display = 'block';
+    document.getElementById('userWelcome').textContent = `Logged in as: ${currentUser.email}`;
+    await fetchRecords();
+  } else {
+    currentUser = null;
+    authContainer.style.display = 'flex';
+    appContainer.style.display = 'none';
+  }
+  lucide.createIcons();
+});
+
+// ──────────────────────────────────────────
+// CLOUD DATABASE LOGIC
+// ──────────────────────────────────────────
+async function fetchRecords() {
+  const { data, error } = await supabase.from('ot_records').select('*').order('date', { ascending: true });
+  if (data) {
+    records = data.map(d => ({
+      id: d.id, date: d.date, clockIn: d.clockin, clockOut: d.clockout, notes: d.notes
+    }));
+    updateFilters();
+    filterRecords();
+  }
+}
+
+async function saveToDatabase(record) {
+  const dbRecord = {
+    id: record.id,
+    user_id: currentUser.id,
+    date: record.date,
+    clockin: record.clockIn,
+    clockout: record.clockOut,
+    notes: record.notes
+  };
+  await supabase.from('ot_records').upsert(dbRecord);
+}
+
+async function deleteFromDatabase(id) {
+  await supabase.from('ot_records').delete().eq('id', id);
+}
+
+// ──────────────────────────────────────────
+// UPDATE EXISTING CRUD FUNCTIONS
+// ──────────────────────────────────────────
+async function handleFormSubmit(e) {
+  e.preventDefault();
+  const record = {
+    id: editingId || Date.now().toString(),
+    date: document.getElementById('date').value,
+    clockIn: document.getElementById('clockIn').value,
+    clockOut: document.getElementById('clockOut').value,
+    notes: document.getElementById('notes').value
+  };
+
+  if (editingId) {
+    const index = records.findIndex(r => r.id === editingId);
+    records[index] = record;
+    editingId = null;
+  } else {
+    records.push(record);
+  }
+
+  await saveToDatabase(record); // Saved to Cloud
+  updateFilters(); 
+  
+  const [y, m] = record.date.split('-');
+  document.getElementById('monthFilter').value = parseInt(m);
+  document.getElementById('yearFilter').value = y;
+  
+  filterRecords();
+  e.target.reset();
+  document.getElementById('dayName').value = '';
+}
+
+async function deleteRecord(id) {
+  if (confirm('Are you sure you want to delete this record?')) {
+    records = records.filter(r => r.id !== id);
+    await deleteFromDatabase(id); // Deleted from Cloud
+    filterRecords();
+  }
+}
+// ──────────────────────────────────────────
 // DATA & STORAGE
 // ──────────────────────────────────────────
 let records = JSON.parse(localStorage.getItem('otRecords')) || [];
