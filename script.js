@@ -5,25 +5,45 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
 
   (() => {
       // ──────────────────────────────────────────
-      // ১. SUPABASE CONFIGURATION (এই দুটি লাইন পরিবর্তন করুন)
+      // ১. SUPABASE CONFIGURATION
       // ──────────────────────────────────────────
-      const SUPABASE_URL = 'https://qinayntexlzgpxihdutm.supabase.co';
-      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFpbmF5bnRleGx6Z3B4aWhkdXRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1NjI2NjAsImV4cCI6MjEwNTEzODY2MH0.rarroAzcFRpHgWado6Rz5fEI8t4gPhgBieddnchk924';
+      const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+      const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
       
       const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       let currentUser = null;
       let records = [];
       let editingId = null;
-      let isInitialLoad = true; // অ্যাপ ওপেন হওয়ার পর রানিং মাস দেখানোর ফ্ল্যাগ
+      let isInitialLoad = true;
+      let isLoginMode = true; // Auth Toggle State
       
       // ──────────────────────────────────────────
-      // ২. AUTHENTICATION LOGIC
+      // ২. AUTHENTICATION LOGIC (Login vs Sign Up)
       // ──────────────────────────────────────────
       const authContainer = document.getElementById('authContainer');
       const appContainer = document.getElementById('appContainer');
       const authError = document.getElementById('authError');
       
-      async function handleAuth(action) {
+      // Toggle UI
+      document.getElementById('showLoginBtn').addEventListener('click', () => {
+        isLoginMode = true;
+        document.getElementById('showLoginBtn').classList.add('active');
+        document.getElementById('showSignupBtn').classList.remove('active');
+        document.getElementById('signupFields').style.display = 'none';
+        document.getElementById('authTitle').textContent = 'Login to your account';
+        document.getElementById('authSubmitBtn').textContent = 'Login';
+      });
+      
+      document.getElementById('showSignupBtn').addEventListener('click', () => {
+        isLoginMode = false;
+        document.getElementById('showSignupBtn').classList.add('active');
+        document.getElementById('showLoginBtn').classList.remove('active');
+        document.getElementById('signupFields').style.display = 'block';
+        document.getElementById('authTitle').textContent = 'Create an account';
+        document.getElementById('authSubmitBtn').textContent = 'Sign Up';
+      });
+      
+      async function handleAuth() {
         const email = document.getElementById('emailInput').value;
         const password = document.getElementById('passwordInput').value;
         authError.style.display = 'none';
@@ -39,29 +59,41 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
         authError.style.display = 'block';
       
         try {
-          const { data, error } = action === 'login' 
-            ? await supabase.auth.signInWithPassword({ email, password })
-            : await supabase.auth.signUp({ email, password });
+          if (isLoginMode) {
+            const { error } = await supabase.auth.signInWithPassword({ email, password });
+            if (error) throw error;
+          } else {
+            // Gather extra data for Sign up
+            const meta = {
+              nickName: document.getElementById('nickNameInput').value,
+              fullName: document.getElementById('fullNameInput').value,
+              institution: document.getElementById('institutionInput').value,
+              contact: document.getElementById('contactInput').value,
+              officeStart: document.getElementById('officeStartInput').value,
+              officeEnd: document.getElementById('officeEndInput').value
+            };
       
-          if (error) throw error;
+            if(!meta.nickName || !meta.institution || !meta.contact || !meta.officeStart || !meta.officeEnd) {
+               throw new Error("Please fill up all required fields (*).");
+            }
       
-          if (action === 'signUp') {
-             authError.textContent = 'Signup successful! You can now login.';
-             authError.style.color = '#22c55e';
+            const { error } = await supabase.auth.signUp({
+              email, 
+              password,
+              options: { data: meta }
+            });
+            if (error) throw error;
+      
+            authError.textContent = 'Signup successful! You can now login.';
+            authError.style.color = '#22c55e';
           }
-      
         } catch (err) {
-          authError.textContent = err.message || 'An error occurred. Check your URL/Key.';
+          authError.textContent = err.message || 'An error occurred.';
           authError.style.color = '#ef4444';
         }
       }
       
-      document.getElementById('loginBtn').addEventListener('click', () => handleAuth('login'));
-      document.getElementById('registerBtn').addEventListener('click', () => handleAuth('signUp'));
-      
-      document.getElementById('passwordInput').addEventListener('keypress', function (e) {
-        if (e.key === 'Enter') handleAuth('login');
-      });
+      document.getElementById('authSubmitBtn').addEventListener('click', handleAuth);
       
       document.getElementById('logoutBtn').addEventListener('click', async () => {
         await supabase.auth.signOut();
@@ -70,10 +102,20 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
       supabase.auth.onAuthStateChange(async (event, session) => {
         if (session) {
           currentUser = session.user;
-          isInitialLoad = true; // লগইন করলে ফ্ল্যাগ রিসেট হবে
+          isInitialLoad = true; 
           authContainer.style.display = 'none';
           appContainer.style.display = 'block';
-          document.getElementById('userWelcome').textContent = `Logged in as: ${currentUser.email}`;
+          
+          // Set Dashboard Profile Info
+          const meta = currentUser.user_metadata || {};
+          document.getElementById('pName').textContent = meta.fullName ? `${meta.fullName} (${meta.nickName || 'User'})` : (meta.nickName || 'User');
+          document.getElementById('pInst').textContent = meta.institution || 'N/A';
+          document.getElementById('pContact').textContent = meta.contact || 'N/A';
+          
+          const oStart = formatTimeDisplay(meta.officeStart) || 'N/A';
+          const oEnd = formatTimeDisplay(meta.officeEnd) || 'N/A';
+          document.getElementById('pTime').textContent = `${oStart} - ${oEnd}`;
+      
           await fetchRecords();
         } else {
           currentUser = null;
@@ -87,52 +129,35 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
       // ৩. CLOUD DATABASE LOGIC
       // ──────────────────────────────────────────
       async function fetchRecords() {
-        const { data, error } = await supabase
-          .from('ot_records')
-          .select('*')
-          .order('date', { ascending: true });
-          
+        const { data, error } = await supabase.from('ot_records').select('*').order('date', { ascending: true });
         if (data) {
           records = data.map(d => ({
             id: d.id, date: d.date, clockIn: d.clockin, clockOut: d.clockout, notes: d.notes
           }));
-          
           updateFilters();
-      
-          // অ্যাপ ওপেন করার সাথে সাথে বর্তমান মাস ও বছর সিলেক্ট করা
           if (isInitialLoad) {
             const now = new Date();
             document.getElementById('monthFilter').value = now.getMonth() + 1;
             document.getElementById('yearFilter').value = now.getFullYear();
-            isInitialLoad = false; // একবার লোড হওয়ার পর অফ করে দেওয়া
+            isInitialLoad = false;
           }
-      
           filterRecords();
-        } else if (error) {
-          console.error("Error fetching records:", error);
         }
       }
       
       async function saveToDatabase(record) {
         const dbRecord = {
-          id: record.id,
-          user_id: currentUser.id,
-          date: record.date,
-          clockin: record.clockIn,
-          clockout: record.clockOut,
-          notes: record.notes
+          id: record.id, user_id: currentUser.id, date: record.date, clockin: record.clockIn, clockout: record.clockOut, notes: record.notes
         };
-        const { error } = await supabase.from('ot_records').upsert(dbRecord);
-        if (error) console.error("Error saving:", error);
+        await supabase.from('ot_records').upsert(dbRecord);
       }
       
       async function deleteFromDatabase(id) {
-        const { error } = await supabase.from('ot_records').delete().eq('id', id);
-        if (error) console.error("Error deleting:", error);
+        await supabase.from('ot_records').delete().eq('id', id);
       }
       
       // ──────────────────────────────────────────
-      // ৪. OVERTIME CALCULATION (৯ ঘণ্টার হিসাব)
+      // ৪. DYNAMIC OVERTIME CALCULATION (From User Profile)
       // ──────────────────────────────────────────
       function calculateOT(record) {
         if (!record.clockIn || !record.clockOut) return { total: 0 };
@@ -144,9 +169,18 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
         let outMinutes = outParts[0] * 60 + outParts[1];
       
         if (outMinutes < inMinutes) outMinutes += 24 * 60; 
-      
         const totalWorkedMinutes = outMinutes - inMinutes;
-        const requiredMinutes = 9 * 60; 
+      
+        // Get required time from User Profile
+        let requiredMinutes = 9 * 60; // Default fallback
+        if (currentUser && currentUser.user_metadata && currentUser.user_metadata.officeStart && currentUser.user_metadata.officeEnd) {
+            const sParts = currentUser.user_metadata.officeStart.split(':').map(Number);
+            const eParts = currentUser.user_metadata.officeEnd.split(':').map(Number);
+            let sMins = sParts[0] * 60 + sParts[1];
+            let eMins = eParts[0] * 60 + eParts[1];
+            if (eMins < sMins) eMins += 24 * 60;
+            requiredMinutes = eMins - sMins;
+        }
       
         let otTotal = 0;
         if (totalWorkedMinutes > requiredMinutes) {
@@ -165,7 +199,7 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
       }
       
       function formatTimeDisplay(timeStr) {
-        if (!timeStr) return '-';
+        if (!timeStr) return '';
         const [h, m] = timeStr.split(':').map(Number);
         const period = h >= 12 ? 'PM' : 'AM';
         const hour12 = h % 12 || 12;
@@ -184,7 +218,6 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
       function renderRecords(filteredRecords) {
         const tbody = document.getElementById('recordsBody');
         if (!tbody) return;
-        
         tbody.innerHTML = '';
         let grandTotalMinutes = 0;
       
@@ -206,12 +239,8 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
             <td style="font-weight: 600; color: var(--primary);">${formatHHMM(ot.total)}</td>
             <td style="color: var(--muted);">${record.notes || '-'}</td>
             <td style="text-align: right;">
-              <button class="action-btn" title="Edit" onclick="editRecord('${record.id}')">
-                <i data-lucide="pencil"></i>
-              </button>
-              <button class="action-btn delete-btn" title="Delete" onclick="deleteRecord('${record.id}')">
-                <i data-lucide="trash-2"></i>
-              </button>
+              <button class="action-btn" title="Edit" onclick="editRecord('${record.id}')"><i data-lucide="pencil"></i></button>
+              <button class="action-btn delete-btn" title="Delete" onclick="deleteRecord('${record.id}')"><i data-lucide="trash-2"></i></button>
             </td>
           `;
           tbody.appendChild(row);
@@ -220,19 +249,17 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
         document.getElementById('grandTotalCell').innerHTML = '<strong>' + formatHHMM(grandTotalMinutes) + '</strong>';
         document.getElementById('totalRecords').textContent = filteredRecords.length;
         document.getElementById('totalOvertime').textContent = formatHHMM(grandTotalMinutes);
-      
         lucide.createIcons();
       }
       
       // ──────────────────────────────────────────
-      // ৭. FILTERS (আপডেটেড লজিক)
+      // ৭. FILTERS
       // ──────────────────────────────────────────
       function updateFilters() {
         const monthSelect = document.getElementById('monthFilter');
         const yearSelect = document.getElementById('yearFilter');
         if(!monthSelect || !yearSelect) return;
       
-        // ইউজার আগে যা সিলেক্ট করেছিল, তা সংরক্ষণ করা
         const currentMonth = monthSelect.value;
         const currentYear = yearSelect.value;
       
@@ -245,7 +272,6 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
         
         yearSelect.innerHTML = '<option value="">All Years</option>' + years.map(y => `<option value="${y}">${y}</option>`).join('');
       
-        // সংরক্ষিত মাস ও বছর পুনরায় সেট করা
         if (currentMonth !== undefined) monthSelect.value = currentMonth;
         if (currentYear !== undefined) yearSelect.value = currentYear;
       
@@ -257,7 +283,6 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
         const monthSelect = document.getElementById('monthFilter');
         const yearSelect = document.getElementById('yearFilter');
         if(!monthSelect) return;
-      
         const month = monthSelect.value;
         const year = yearSelect.value;
       
@@ -275,20 +300,14 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
       // ──────────────────────────────────────────
       // ৮. FORM HANDLING
       // ──────────────────────────────────────────
-      const dateInput = document.getElementById('date');
-      if(dateInput) {
-        dateInput.addEventListener('change', (e) => {
-          const dateVal = e.target.value;
-          document.getElementById('dayName').value = dateVal ? new Date(dateVal + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' }) : '';
-        });
-      }
+      document.getElementById('date').addEventListener('change', (e) => {
+        const dateVal = e.target.value;
+        document.getElementById('dayName').value = dateVal ? new Date(dateVal + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' }) : '';
+      });
       
       async function handleFormSubmit(e) {
         e.preventDefault();
-        if(!currentUser) {
-          alert("Please login first!");
-          return;
-        }
+        if(!currentUser) return alert("Please login first!");
       
         const record = {
           id: editingId || Date.now().toString(),
@@ -307,7 +326,6 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
         }
       
         updateFilters(); 
-        
         const [y, m] = record.date.split('-');
         document.getElementById('monthFilter').value = parseInt(m);
         document.getElementById('yearFilter').value = y;
@@ -315,20 +333,18 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
         filterRecords();
         e.target.reset();
         document.getElementById('dayName').value = '';
-      
         await saveToDatabase(record); 
       }
+      document.getElementById('otForm').addEventListener('submit', handleFormSubmit);
       
       window.editRecord = function(id) {
         const record = records.find(r => r.id === id);
         if (!record) return;
-      
         document.getElementById('date').value = record.date;
         document.getElementById('clockIn').value = record.clockIn;
         document.getElementById('clockOut').value = record.clockOut;
         document.getElementById('notes').value = record.notes;
         document.getElementById('dayName').value = new Date(record.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' });
-      
         editingId = id;
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -341,14 +357,108 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
         }
       }
       
+      document.getElementById('clearBtn').addEventListener('click', () => {
+        document.getElementById('otForm').reset();
+        document.getElementById('dayName').value = '';
+        editingId = null;
+      });
+      
       // ──────────────────────────────────────────
-      // ৯. DARK MODE & EXPORT
+      // ৯. EXCEL EXPORT & IMPORT (XLSX)
+      // ──────────────────────────────────────────
+      const exportExcelBtn = document.getElementById('exportExcel');
+      if(exportExcelBtn) {
+        exportExcelBtn.addEventListener('click', () => {
+          // 1. Create Data Array
+          const ws_data = [['Date', 'Day', 'Clock In', 'Clock Out', 'Total OT', 'Notes']];
+          
+          // Sort records logically before export
+          const exportRecords = [...records].sort((a, b) => new Date(a.date) - new Date(b.date));
+          
+          exportRecords.forEach(r => {
+            const ot = calculateOT(r);
+            const dayName = new Date(r.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+            ws_data.push([
+              formatDateToDDMMYYYY(r.date), dayName, formatTimeDisplay(r.clockIn), formatTimeDisplay(r.clockOut), formatHHMM(ot.total), r.notes || ''
+            ]);
+          });
+      
+          // 2. Generate Excel File
+          const ws = XLSX.utils.aoa_to_sheet(ws_data);
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, "OT Records");
+          XLSX.writeFile(wb, "Overtime_Records.xlsx");
+        });
+      }
+      
+      const importExcelBtn = document.getElementById('importExcel');
+      if(importExcelBtn) {
+        importExcelBtn.addEventListener('change', (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+      
+          const reader = new FileReader();
+          reader.onload = async function(e) {
+            try {
+              const data = new Uint8Array(e.target.result);
+              const workbook = XLSX.read(data, {type: 'array'});
+              const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+              const jsonData = XLSX.utils.sheet_to_json(firstSheet, { raw: false });
+              
+              let count = 0;
+              for (let row of jsonData) {
+                const rawDate = row['Date'] || row['date'];
+                if(!rawDate) continue;
+      
+                // Handle Excel string date (DD-MM-YYYY to YYYY-MM-DD for saving)
+                let isoDate = rawDate;
+                if (rawDate.includes('-') && rawDate.split('-')[0].length === 2) {
+                   const p = rawDate.split('-');
+                   isoDate = `${p[2]}-${p[1]}-${p[0]}`;
+                }
+      
+                // Back to 24h format for saving (e.g., "05:00 PM" -> "17:00")
+                function parseTime(tStr) {
+                  if(!tStr || tStr==='-') return '';
+                  const m = tStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+                  if(!m) return tStr; // fallback
+                  let hr = parseInt(m[1]), min = m[2], p = m[3].toUpperCase();
+                  if(p==='PM' && hr!==12) hr+=12;
+                  if(p==='AM' && hr===12) hr=0;
+                  return String(hr).padStart(2,'0') + ':' + min;
+                }
+      
+                const record = {
+                  id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                  date: isoDate,
+                  clockIn: parseTime(row['Clock In'] || row['In'] || ''),
+                  clockOut: parseTime(row['Clock Out'] || row['Out'] || ''),
+                  notes: row['Notes'] || ''
+                };
+      
+                records.push(record);
+                await saveToDatabase(record);
+                count++;
+              }
+              
+              updateFilters(); filterRecords();
+              alert(`Successfully imported ${count} records from Excel!`);
+            } catch(err) {
+              alert('Error parsing Excel file. Make sure columns match the exported format.');
+            }
+          };
+          reader.readAsArrayBuffer(file);
+          e.target.value = ''; 
+        });
+      }
+      
+      // ──────────────────────────────────────────
+      // ১০. DARK MODE & INIT
       // ──────────────────────────────────────────
       const darkModeBtn = document.getElementById('darkModeToggle');
       if (localStorage.getItem('otDarkMode') === 'true') document.documentElement.classList.add('dark');
       
       function updateDarkModeButton() {
-        if(!darkModeBtn) return;
         const isDark = document.documentElement.classList.contains('dark');
         darkModeBtn.innerHTML = isDark ? '<i data-lucide="sun"></i>' : '<i data-lucide="moon"></i>';
         lucide.createIcons();
@@ -362,43 +472,10 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
         });
       }
       
-      const clearBtn = document.getElementById('clearBtn');
-      if(clearBtn) {
-        clearBtn.addEventListener('click', () => {
-          document.getElementById('otForm').reset();
-          document.getElementById('dayName').value = '';
-          editingId = null;
-        });
-      }
-      
-      const exportCsvBtn = document.getElementById('exportCsv');
-      if(exportCsvBtn) {
-        exportCsvBtn.addEventListener('click', () => {
-          const headers = ['Date', 'Day', 'Clock In', 'Clock Out', 'Total OT', 'Notes'];
-          const rows = [];
-          records.forEach(r => {
-            const ot = calculateOT(r);
-            const dayName = new Date(r.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' });
-            const formattedDate = formatDateToDDMMYYYY(r.date);
-            rows.push([formattedDate, dayName, formatTimeDisplay(r.clockIn), formatTimeDisplay(r.clockOut), formatHHMM(ot.total), '"' + (r.notes || '').replace(/"/g, '""') + '"']);
-          });
-          const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-          const blob = new Blob([csvContent], { type: 'text/csv' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url; a.download = 'overtime-records.csv'; a.click(); URL.revokeObjectURL(url);
-        });
-      }
-      
-      // Initialization
       function init() {
-        const otForm = document.getElementById('otForm');
-        if(otForm) otForm.addEventListener('submit', handleFormSubmit);
-        
         updateDarkModeButton();
         lucide.createIcons();
       }
-      
       document.addEventListener('DOMContentLoaded', init);
   })();
 }
