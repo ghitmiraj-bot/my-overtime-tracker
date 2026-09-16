@@ -5,28 +5,51 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Modern Overtime Tracker</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Supabase CDN -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="container">
 
-    <!-- Header -->
-    <div class="header fade-in">
+  <!-- Login/Register Screen -->
+  <div id="authContainer" class="auth-wrapper fade-in">
+    <div class="card auth-card">
+      <h2 style="text-align: center; margin-bottom: 5px;">Overtime Tracker</h2>
+      <p style="text-align: center; color: var(--muted); margin-bottom: 24px;">Login to sync your data</p>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="emailInput" placeholder="name@example.com">
+      </div>
+      <div class="form-group" style="margin-top: 16px;">
+        <label>Password</label>
+        <input type="password" id="passwordInput" placeholder="••••••••">
+      </div>
+      <div id="authError" style="color: #ef4444; font-size: 13px; margin-top: 10px; display: none;"></div>
+      <div style="display: flex; gap: 10px; margin-top: 24px;">
+        <button id="loginBtn" class="btn-primary" style="flex: 1;">Login</button>
+        <button id="registerBtn" class="btn-outline" style="flex: 1;">Sign Up</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App (Hidden by default) -->
+  <div class="container fade-in" id="appContainer" style="display: none;">
+    <div class="header">
       <div>
         <h1>Overtime Tracker</h1>
-        <p class="subtitle">Track your daily overtime seamlessly</p>
+        <p class="subtitle" id="userWelcome">Track your daily overtime seamlessly</p>
       </div>
-      <button id="darkModeToggle" class="btn-outline">
-        <i data-lucide="moon"></i> <span>Dark Mode</span>
-      </button>
+      <div style="display: flex; gap: 12px;">
+        <button id="darkModeToggle" class="btn-outline"><i data-lucide="moon"></i></button>
+        <button id="logoutBtn" class="btn-outline" style="color: #ef4444; border-color: #ef4444;"><i data-lucide="log-out"></i> Logout</button>
+      </div>
     </div>
 
-    <!-- Summary -->
-    <div class="summary-card fade-in" style="animation-delay: 0.1s;">
+    <!-- Summary & Controls -->
+    <div class="summary-card">
       <div class="summary-item">
-        <div class="label"><i data-lucide="calendar-days"></i> Total Working Days</div>
+        <div class="label"><i data-lucide="calendar-days"></i> Working Days</div>
         <div class="value" id="totalRecords">0</div>
       </div>
       <div class="summary-item">
@@ -35,94 +58,44 @@
       </div>
     </div>
 
-    <!-- Controls / Filters -->
-    <div class="controls-section fade-in" style="animation-delay: 0.2s;">
+    <div class="controls-section">
       <div class="filters">
-        <div class="select-wrapper">
-          <select id="monthFilter"></select>
-          <i data-lucide="chevron-down" class="select-icon"></i>
-        </div>
-        <div class="select-wrapper">
-          <select id="yearFilter"></select>
-          <i data-lucide="chevron-down" class="select-icon"></i>
-        </div>
+        <div class="select-wrapper"><select id="monthFilter"></select><i data-lucide="chevron-down" class="select-icon"></i></div>
+        <div class="select-wrapper"><select id="yearFilter"></select><i data-lucide="chevron-down" class="select-icon"></i></div>
       </div>
       <div class="actions">
         <button id="exportCsv" class="btn-outline"><i data-lucide="download"></i> Export CSV</button>
-        <label class="btn-outline cursor-pointer">
-          <i data-lucide="upload"></i> Import CSV
-          <input type="file" id="importCsv" accept=".csv" hidden>
-        </label>
-        <button id="backupJson" class="btn-outline"><i data-lucide="database"></i> Backup</button>
-        <label class="btn-outline cursor-pointer">
-          <i data-lucide="refresh-cw"></i> Restore
-          <input type="file" id="restoreJson" accept=".json" hidden>
-        </label>
       </div>
     </div>
 
     <!-- Form -->
-    <div class="card fade-in" style="animation-delay: 0.3s;">
+    <div class="card">
       <h2 class="card-title"><i data-lucide="plus-circle"></i> Add / Edit Record</h2>
       <form id="otForm">
         <div class="form-grid">
-          <div class="form-group">
-            <label>Date</label>
-            <input type="date" id="date" required>
-          </div>
-          <div class="form-group">
-            <label>Clock In</label>
-            <input type="time" id="clockIn">
-          </div>
-          <div class="form-group">
-            <label>Clock Out</label>
-            <input type="time" id="clockOut">
-          </div>
-          <div class="form-group">
-            <label>Day</label>
-            <input type="text" id="dayName" readonly placeholder="Auto-filled">
-          </div>
+          <div class="form-group"><label>Date</label><input type="date" id="date" required></div>
+          <div class="form-group"><label>Clock In</label><input type="time" id="clockIn"></div>
+          <div class="form-group"><label>Clock Out</label><input type="time" id="clockOut"></div>
+          <div class="form-group"><label>Day</label><input type="text" id="dayName" readonly></div>
         </div>
-
-        <div class="form-group" style="margin-top: 20px;">
-          <label>Notes (Optional)</label>
-          <input type="text" id="notes" placeholder="Enter any notes here...">
-        </div>
-
+        <div class="form-group" style="margin-top: 20px;"><label>Notes</label><input type="text" id="notes"></div>
         <div class="form-actions">
           <button type="submit" class="btn-primary"><i data-lucide="save"></i> Save Record</button>
-          <button type="button" id="clearBtn" class="btn-ghost"><i data-lucide="x"></i> Clear Form</button>
+          <button type="button" id="clearBtn" class="btn-ghost"><i data-lucide="x"></i> Clear</button>
         </div>
       </form>
     </div>
 
     <!-- Table -->
-    <div class="card table-card fade-in" style="animation-delay: 0.4s;">
+    <div class="card table-card">
       <div class="table-wrapper">
         <table id="recordsTable">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Day</th>
-              <th>Clock In</th>
-              <th>Clock Out</th>
-              <th>Total OT</th>
-              <th>Notes</th>
-              <th style="text-align: right;">Actions</th>
-            </tr>
-          </thead>
+          <thead><tr><th>Date</th><th>Day</th><th>In</th><th>Out</th><th>Total OT</th><th>Notes</th><th style="text-align: right;">Actions</th></tr></thead>
           <tbody id="recordsBody"></tbody>
-          <tfoot id="recordsFoot">
-            <tr class="grand-total-row">
-              <td colspan="4"><strong>Monthly Grand Total</strong></td>
-              <td id="grandTotalCell"><strong>00:00</strong></td>
-              <td colspan="2"></td>
-            </tr>
-          </tfoot>
+          <tfoot><tr class="grand-total-row"><td colspan="4"><strong>Grand Total</strong></td><td id="grandTotalCell"><strong>00:00</strong></td><td colspan="2"></td></tr></tfoot>
         </table>
       </div>
     </div>
-
   </div>
 
   <script src="script.js"></script>
