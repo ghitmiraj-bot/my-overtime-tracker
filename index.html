@@ -6,47 +6,77 @@
   <title>Modern Overtime Tracker</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/lucide@latest"></script>
-  <!-- Supabase CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Supabase -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <!-- SheetJS for Excel Export/Import -->
+  <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <!-- Login/Register Screen -->
+  <!-- Auth Screen -->
   <div id="authContainer" class="auth-wrapper fade-in">
     <div class="card auth-card">
-      <h2 style="text-align: center; margin-bottom: 5px;">Overtime Tracker</h2>
-      <p style="text-align: center; color: var(--muted); margin-bottom: 24px;">Login to sync your data</p>
-      <div class="form-group">
-        <label>Email</label>
-        <input type="email" id="emailInput" placeholder="name@example.com">
+      <h2 style="text-align: center; margin-bottom: 20px;" id="authTitle">Login to your account</h2>
+      
+      <!-- Login / Signup Toggle -->
+      <div class="auth-toggle">
+        <button type="button" id="showLoginBtn" class="active">Login</button>
+        <button type="button" id="showSignupBtn">Sign Up</button>
       </div>
-      <div class="form-group" style="margin-top: 16px;">
-        <label>Password</label>
-        <input type="password" id="passwordInput" placeholder="••••••••">
+
+      <!-- Common Fields -->
+      <div class="form-group"><label>Email</label><input type="email" id="emailInput" placeholder="name@example.com"></div>
+      <div class="form-group" style="margin-top: 12px;"><label>Password</label><input type="password" id="passwordInput" placeholder="••••••••"></div>
+
+      <!-- Extra Fields for Sign Up (Hidden by default) -->
+      <div id="signupFields" style="display: none; margin-top: 12px;">
+        <div class="form-grid">
+          <div class="form-group"><label>Nick Name *</label><input type="text" id="nickNameInput" placeholder="e.g. Miraj"></div>
+          <div class="form-group"><label>Full Name</label><input type="text" id="fullNameInput" placeholder="(Optional)"></div>
+        </div>
+        <div class="form-group" style="margin-top: 12px;"><label>Institution Name *</label><input type="text" id="institutionInput" placeholder="Where do you work?"></div>
+        <div class="form-group" style="margin-top: 12px;"><label>Contact Number *</label><input type="text" id="contactInput" placeholder="Phone Number"></div>
+        
+        <div class="form-grid" style="margin-top: 12px;">
+          <div class="form-group"><label>Office Start Time *</label><input type="time" id="officeStartInput"></div>
+          <div class="form-group"><label>Office End Time *</label><input type="time" id="officeEndInput"></div>
+        </div>
       </div>
-      <div id="authError" style="color: #ef4444; font-size: 13px; margin-top: 10px; display: none;"></div>
-      <div style="display: flex; gap: 10px; margin-top: 24px;">
-        <button id="loginBtn" class="btn-primary" style="flex: 1;">Login</button>
-        <button id="registerBtn" class="btn-outline" style="flex: 1;">Sign Up</button>
-      </div>
+
+      <div id="authError" style="font-size: 13px; margin-top: 15px; display: none;"></div>
+      <button id="authSubmitBtn" class="btn-primary" style="width: 100%; margin-top: 20px;">Login</button>
     </div>
   </div>
 
-  <!-- Main App (Hidden by default) -->
+  <!-- Main App -->
   <div class="container fade-in" id="appContainer" style="display: none;">
+    
+    <!-- Header with Profile Info -->
     <div class="header">
-      <div>
+      <div style="flex: 1;">
         <h1>Overtime Tracker</h1>
-        <p class="subtitle" id="userWelcome">Track your daily overtime seamlessly</p>
+        
+        <!-- User Information Dashboard -->
+        <div class="user-profile-info" id="userProfileInfo">
+           <div class="profile-col">
+              <div class="p-item"><i data-lucide="user"></i> <span id="pName">Name</span></div>
+              <div class="p-item"><i data-lucide="building"></i> <span id="pInst">Institution</span></div>
+           </div>
+           <div class="profile-col">
+              <div class="p-item"><i data-lucide="phone"></i> <span id="pContact">Contact</span></div>
+              <div class="p-item"><i data-lucide="clock"></i> <span id="pTime">Office Time</span></div>
+           </div>
+        </div>
+
       </div>
-      <div style="display: flex; gap: 12px;">
+      <div style="display: flex; gap: 12px; align-items: flex-start; margin-left: 20px;">
         <button id="darkModeToggle" class="btn-outline"><i data-lucide="moon"></i></button>
         <button id="logoutBtn" class="btn-outline" style="color: #ef4444; border-color: #ef4444;"><i data-lucide="log-out"></i> Logout</button>
       </div>
     </div>
 
-    <!-- Summary & Controls -->
+    <!-- Summary -->
     <div class="summary-card">
       <div class="summary-item">
         <div class="label"><i data-lucide="calendar-days"></i> Working Days</div>
@@ -58,13 +88,18 @@
       </div>
     </div>
 
+    <!-- Controls -->
     <div class="controls-section">
       <div class="filters">
         <div class="select-wrapper"><select id="monthFilter"></select><i data-lucide="chevron-down" class="select-icon"></i></div>
         <div class="select-wrapper"><select id="yearFilter"></select><i data-lucide="chevron-down" class="select-icon"></i></div>
       </div>
       <div class="actions">
-        <button id="exportCsv" class="btn-outline"><i data-lucide="download"></i> Export CSV</button>
+        <button id="exportExcel" class="btn-outline"><i data-lucide="download"></i> Export Excel</button>
+        <label class="btn-outline cursor-pointer">
+          <i data-lucide="upload"></i> Import Excel
+          <input type="file" id="importExcel" accept=".xlsx, .xls" hidden>
+        </label>
       </div>
     </div>
 
