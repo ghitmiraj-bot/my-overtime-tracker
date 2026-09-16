@@ -220,3 +220,38 @@ th .lucide { width: 14px; height: 14px; }
 @media (max-width: 600px) {
   .user-profile-info { grid-template-columns: 1fr; }
 }
+
+
+/* --- Modals for Edit Profile --- */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px);
+  display: flex; justify-content: center; align-items: center;
+  z-index: 2000; padding: 20px;
+}
+.modal-content {
+  width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto;
+  margin-bottom: 0;
+}
+.top-actions { display: flex; gap: 12px; align-items: flex-start; margin-left: 20px; }
+
+/* --- Print Styles --- */
+@media print {
+  /* Hide unnecessary web elements */
+  body { background: white !important; color: black !important; padding: 0 !important; margin: 0 !important; }
+  .auth-wrapper, .header, .summary-card, .controls-section, .add-record-card, .modal-overlay { display: none !important; }
+  
+  /* Show Print Header */
+  #printHeader { display: block !important; padding-top: 20px; padding-bottom: 10px; }
+  
+  /* Setup Table for Print */
+  .container { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
+  .table-card { box-shadow: none !important; border: none !important; padding: 0 !important; margin: 0 !important; }
+  table { width: 100% !important; border-collapse: collapse !important; border: 1px solid black !important; }
+  th, td { border: 1px solid black !important; padding: 8px !important; color: black !important; background: white !important; font-size: 12pt !important; }
+  th { background: #f0f0f0 !important; font-weight: bold !important; text-transform: uppercase; }
+  
+  /* Hide Action Column during Print */
+  .action-col { display: none !important; }
+  td:last-child { display: none !important; }
+}
