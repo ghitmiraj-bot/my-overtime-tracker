@@ -17,19 +17,16 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
       let editingId = null;
       let isInitialLoad = true;
       let isLoginMode = true; 
-      let tempSignupEmail = ""; // OTP এর জন্য ইমেইল ধরে রাখতে
       
       // ──────────────────────────────────────────
-      // ২. AUTHENTICATION & RECOVERY LOGIC
+      // ২. AUTHENTICATION & RECOVERY LOGIC (Link Based)
       // ──────────────────────────────────────────
       const authContainer = document.getElementById('authContainer');
       const appContainer = document.getElementById('appContainer');
       const mainAuthCard = document.getElementById('mainAuthCard');
-      const otpCard = document.getElementById('otpCard');
       const forgotPasswordCard = document.getElementById('forgotPasswordCard');
       const authError = document.getElementById('authError');
       
-      // Toggles
       document.getElementById('showLoginBtn').addEventListener('click', () => {
         isLoginMode = true;
         document.getElementById('showLoginBtn').classList.add('active');
@@ -50,7 +47,6 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
         document.getElementById('authSubmitBtn').textContent = 'Sign Up';
       });
       
-      // Main Login / Signup Submit
       async function handleAuth() {
         const email = document.getElementById('emailInput').value;
         const password = document.getElementById('passwordInput').value;
@@ -68,14 +64,10 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
             if (error) throw error;
           } else {
             const meta = {
-              nickName: document.getElementById('nickNameInput').value,
-              fullName: document.getElementById('fullNameInput').value,
-              designation: document.getElementById('designationInput').value,
-              department: document.getElementById('departmentInput').value,
-              institution: document.getElementById('institutionInput').value,
-              contact: document.getElementById('contactInput').value,
-              officeStart: document.getElementById('officeStartInput').value,
-              officeEnd: document.getElementById('officeEndInput').value
+              nickName: document.getElementById('nickNameInput').value, fullName: document.getElementById('fullNameInput').value,
+              designation: document.getElementById('designationInput').value, department: document.getElementById('departmentInput').value,
+              institution: document.getElementById('institutionInput').value, contact: document.getElementById('contactInput').value,
+              officeStart: document.getElementById('officeStartInput').value, officeEnd: document.getElementById('officeEndInput').value
             };
             if(!meta.nickName || !meta.designation || !meta.department || !meta.institution || !meta.contact || !meta.officeStart || !meta.officeEnd) {
                throw new Error("Please fill up all required fields (*).");
@@ -84,11 +76,9 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
             const { error } = await supabase.auth.signUp({ email, password, options: { data: meta } });
             if (error) throw error;
             
-            // Show OTP Screen
-            tempSignupEmail = email;
-            mainAuthCard.style.display = 'none';
-            otpCard.style.display = 'block';
-            authError.style.display = 'none';
+            // Show Success Message for Email Link
+            authError.textContent = 'Signup successful! Please check your email for the verification link.'; 
+            authError.style.color = '#22c55e';
           }
         } catch (err) {
           authError.textContent = err.message; authError.style.color = '#ef4444';
@@ -96,84 +86,70 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
       }
       document.getElementById('authSubmitBtn').addEventListener('click', handleAuth);
       
-      // Verify OTP for Sign Up
-      document.getElementById('verifyOtpBtn').addEventListener('click', async () => {
-          const otp = document.getElementById('otpInput').value;
-          const errorEl = document.getElementById('otpError');
-          if(!otp || otp.length < 6) { errorEl.textContent = "Enter 6-digit valid OTP"; errorEl.style.display = 'block'; return; }
-          
-          errorEl.textContent = "Verifying..."; errorEl.style.color = '#6366f1'; errorEl.style.display = 'block';
-          
-          const { error } = await supabase.auth.verifyOtp({ email: tempSignupEmail, token: otp, type: 'signup' });
-          if(error) {
-              errorEl.textContent = error.message; errorEl.style.color = '#ef4444';
-          } else {
-              // Verification successful, it will auto login via onAuthStateChange
-              otpCard.style.display = 'none'; mainAuthCard.style.display = 'block';
-          }
-      });
-      
-      // Forgot Email Alert
+      // Forgot Email
       document.getElementById('forgotEmailLink').addEventListener('click', (e) => {
           e.preventDefault();
           alert("For security reasons, email addresses cannot be recovered from the app. Please check your previous login credentials or contact your HR/Administrator.");
       });
       
-      // Forgot Password Flow
+      // Forgot Password -> Send Link
       document.getElementById('forgotPasswordLink').addEventListener('click', (e) => {
           e.preventDefault();
           mainAuthCard.style.display = 'none';
           forgotPasswordCard.style.display = 'block';
           document.getElementById('resetStep1').style.display = 'block';
           document.getElementById('resetStep2').style.display = 'none';
-          document.getElementById('resetMsg').textContent = "Enter your email to receive a reset code.";
+          document.getElementById('resetCardTitle').textContent = "Reset Password";
+          document.getElementById('resetMsg').textContent = "Enter your email to receive a reset link.";
       });
       
-      document.getElementById('backToLoginFromOtp').addEventListener('click', () => { otpCard.style.display = 'none'; mainAuthCard.style.display = 'block'; });
-      document.getElementById('backToLoginFromReset').addEventListener('click', () => { forgotPasswordCard.style.display = 'none'; mainAuthCard.style.display = 'block'; });
+      document.getElementById('backToLoginFromReset').addEventListener('click', () => { 
+          forgotPasswordCard.style.display = 'none'; 
+          mainAuthCard.style.display = 'block'; 
+      });
       
-      let tempResetEmail = "";
       document.getElementById('sendResetCodeBtn').addEventListener('click', async () => {
           const email = document.getElementById('resetEmailInput').value;
           const errEl = document.getElementById('resetError1');
           if(!email) { errEl.textContent = "Enter your email"; errEl.style.display = 'block'; return; }
           
-          errEl.textContent = "Sending code..."; errEl.style.color = '#6366f1'; errEl.style.display = 'block';
-          const { error } = await supabase.auth.resetPasswordForEmail(email);
+          errEl.textContent = "Sending link..."; errEl.style.color = '#6366f1'; errEl.style.display = 'block';
+          
+          // Send reset link
+          const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: window.location.origin
+          });
           if(error) {
               errEl.textContent = error.message; errEl.style.color = '#ef4444';
           } else {
-              tempResetEmail = email;
-              document.getElementById('resetStep1').style.display = 'none';
-              document.getElementById('resetStep2').style.display = 'block';
-              document.getElementById('resetMsg').textContent = "Enter the OTP sent to your email and your new password.";
+              errEl.textContent = "Password reset link sent! Check your email inbox."; 
+              errEl.style.color = '#22c55e';
           }
       });
       
+      // Set New Password (Triggered after clicking the email link)
       document.getElementById('setNewPasswordBtn').addEventListener('click', async () => {
-          const otp = document.getElementById('resetOtpInput').value;
           const newPass = document.getElementById('newPasswordInput').value;
           const errEl = document.getElementById('resetError2');
           
-          if(!otp || !newPass) { errEl.textContent = "Enter OTP and New Password"; errEl.style.display = 'block'; return; }
+          if(!newPass) { errEl.textContent = "Enter New Password"; errEl.style.display = 'block'; return; }
           errEl.textContent = "Updating password..."; errEl.style.color = '#6366f1'; errEl.style.display = 'block';
           
-          // 1. Verify OTP
-          const { error: otpError } = await supabase.auth.verifyOtp({ email: tempResetEmail, token: otp, type: 'recovery' });
-          if(otpError) { errEl.textContent = otpError.message; errEl.style.color = '#ef4444'; return; }
-          
-          // 2. Update Password
           const { error: passError } = await supabase.auth.updateUser({ password: newPass });
           if(passError) { errEl.textContent = passError.message; errEl.style.color = '#ef4444'; return; }
           
           alert("Password updated successfully! Please login with your new password.");
-          forgotPasswordCard.style.display = 'none'; mainAuthCard.style.display = 'block';
-          await supabase.auth.signOut(); // Ensure clean state
+          await supabase.auth.signOut(); 
+          
+          // Reset UI back to login
+          forgotPasswordCard.style.display = 'none'; 
+          mainAuthCard.style.display = 'block';
+          document.getElementById('resetStep2').style.display = 'none';
+          document.getElementById('resetStep1').style.display = 'block';
       });
       
       document.getElementById('logoutBtn').addEventListener('click', async () => await supabase.auth.signOut());
       
-      // State Change & Profile UI
       function updateProfileUI() {
           const meta = currentUser.user_metadata || {};
           document.getElementById('pName').textContent = meta.fullName ? `${meta.fullName} (${meta.nickName || ''})` : (meta.nickName || 'User');
@@ -186,8 +162,19 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
           document.getElementById('pTime').textContent = `${oStart} - ${oEnd}`;
       }
       
+      // Global Auth State Change (Detects when user clicks the reset link)
       supabase.auth.onAuthStateChange(async (event, session) => {
-        if (session) {
+        if (event === 'PASSWORD_RECOVERY') {
+          // Show the Reset Password Step 2 automatically
+          authContainer.style.display = 'flex';
+          appContainer.style.display = 'none';
+          mainAuthCard.style.display = 'none';
+          forgotPasswordCard.style.display = 'block';
+          document.getElementById('resetStep1').style.display = 'none';
+          document.getElementById('resetStep2').style.display = 'block';
+          document.getElementById('resetCardTitle').textContent = "Set New Password";
+          document.getElementById('resetMsg').textContent = "Please enter your new password below.";
+        } else if (session) {
           currentUser = session.user; isInitialLoad = true; 
           authContainer.style.display = 'none'; appContainer.style.display = 'block';
           updateProfileUI(); await fetchRecords();
@@ -198,7 +185,9 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
         lucide.createIcons();
       });
       
-      // Profile Edit & Password Change Logic
+      // ──────────────────────────────────────────
+      // Profile Edit & Password Change Inside Dashboard
+      // ──────────────────────────────────────────
       document.getElementById('openEditProfileBtn').addEventListener('click', () => {
           const meta = currentUser.user_metadata || {};
           document.getElementById('editNick').value = meta.nickName || '';
@@ -209,7 +198,7 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
           document.getElementById('editContact').value = meta.contact || '';
           document.getElementById('editStart').value = meta.officeStart || '';
           document.getElementById('editEnd').value = meta.officeEnd || '';
-          document.getElementById('editPassword').value = ''; // Reset password field
+          document.getElementById('editPassword').value = ''; 
           document.getElementById('editProfileModal').style.display = 'flex';
       });
       document.getElementById('closeProfileBtn').addEventListener('click', () => { document.getElementById('editProfileModal').style.display = 'none'; });
@@ -225,11 +214,9 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
               officeStart: document.getElementById('editStart').value, officeEnd: document.getElementById('editEnd').value
           };
           
-          // Update Meta Data
           const { data, error } = await supabase.auth.updateUser({ data: meta });
           if(error) { alert("Failed to update profile: " + error.message); document.getElementById('saveProfileBtn').textContent = 'Save Changes'; return; }
           
-          // Update Password if provided
           const newPass = document.getElementById('editPassword').value;
           if(newPass) {
               const { error: passErr } = await supabase.auth.updateUser({ password: newPass });
@@ -489,8 +476,6 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
       function init() { 
         updateDarkModeButton(); 
         lucide.createIcons(); 
-      
-        // Initialize Particles (Must match ID in index.html)
         if(window.particlesJS) {
           particlesJS('particles-js', {
             "particles": {
@@ -504,11 +489,7 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
             },
             "interactivity": {
               "detect_on": "canvas",
-              "events": {
-                "onhover": { "enable": true, "mode": "grab" },
-                "onclick": { "enable": true, "mode": "push" },
-                "resize": true
-              },
+              "events": { "onhover": { "enable": true, "mode": "grab" }, "onclick": { "enable": true, "mode": "push" }, "resize": true },
               "modes": { "grab": { "distance": 140, "line_linked": { "opacity": 0.6 } }, "push": { "particles_nb": 3 } }
             },
             "retina_detect": true
