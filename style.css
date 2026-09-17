@@ -255,3 +255,26 @@ th .lucide { width: 14px; height: 14px; }
   .action-col { display: none !important; }
   td:last-child { display: none !important; }
 }
+
+/* --- Floating Particles Background --- */
+#particles-js {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0; /* এটি ব্যাকগ্রাউন্ডে থাকবে */
+  background-color: var(--background); /* ডার্ক/লাইট মোড সাপোর্ট করবে */
+  transition: background-color 0.4s ease;
+}
+
+/* আপনার কন্টেন্ট যেন পার্টিকেলের উপরে থাকে তাই এই কোডটি */
+.container, .auth-wrapper {
+  position: relative;
+  z-index: 1;
+}
+
+/* Body থেকে আগের ব্যাকগ্রাউন্ড কালার সরিয়ে ট্রান্সপারেন্ট করতে হবে */
+body {
+  background-color: transparent !important;
+}
