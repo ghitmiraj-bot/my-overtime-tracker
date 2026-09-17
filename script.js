@@ -455,3 +455,44 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
   })();
 }
    
+// ──────────────────────────────────────────
+// ১১. FLOATING PARTICLES ANIMATION
+// ──────────────────────────────────────────
+particlesJS('particles-js', {
+  "particles": {
+    "number": { "value": 60, "density": { "enable": true, "value_area": 800 } },
+    "color": { "value": "#4F46E5" }, // আপনার অ্যাপের থিম কালার
+    "shape": { "type": "circle" },
+    "opacity": { "value": 0.4, "random": false },
+    "size": { "value": 3, "random": true },
+    "line_linked": { 
+      "enable": true, 
+      "distance": 150, 
+      "color": "#4F46E5", 
+      "opacity": 0.2, 
+      "width": 1 
+    },
+    "move": { 
+      "enable": true, 
+      "speed": 1.5, /* খুব স্মুথ এবং স্লো নড়াচড়া করবে */
+      "direction": "none", 
+      "random": true, 
+      "straight": false, 
+      "out_mode": "out", 
+      "bounce": false 
+    }
+  },
+  "interactivity": {
+    "detect_on": "canvas",
+    "events": {
+      "onhover": { "enable": true, "mode": "grab" }, /* মাউস নিলে পার্টিকেলগুলো কানেক্ট হবে */
+      "onclick": { "enable": true, "mode": "push" }, /* ক্লিক করলে নতুন পার্টিকেল তৈরি হবে */
+      "resize": true
+    },
+    "modes": {
+      "grab": { "distance": 140, "line_linked": { "opacity": 0.6 } },
+      "push": { "particles_nb": 3 }
+    }
+  },
+  "retina_detect": true
+});
