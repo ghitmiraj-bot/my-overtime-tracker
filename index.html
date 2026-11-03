@@ -142,7 +142,17 @@
           <div class="form-group"><label>Clock Out</label><input type="time" id="clockOut"></div>
           <div class="form-group"><label>Day</label><input type="text" id="dayName" readonly></div>
         </div>
-        <div class="form-group" style="margin-top: 20px;"><label>Notes</label><input type="text" id="notes"></div>
+        
+        <!-- Weekend / Holiday OT Toggle -->
+        <div class="form-group" style="margin-top: 24px; display: flex; align-items: center; gap: 12px;">
+          <label class="switch">
+            <input type="checkbox" id="isFullOT">
+            <span class="slider round"></span>
+          </label>
+          <span style="font-size: 14px; font-weight: 500; color: var(--foreground);">Weekend / Holiday (Count full hours as OT)</span>
+        </div>
+
+        <div class="form-group" style="margin-top: 16px;"><label>Notes</label><input type="text" id="notes"></div>
         <div class="form-actions">
           <button type="submit" class="btn-primary"><i data-lucide="save"></i> Save Record</button>
           <button type="button" id="clearBtn" class="btn-ghost"><i data-lucide="x"></i> Clear</button>
