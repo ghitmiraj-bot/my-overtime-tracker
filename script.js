@@ -1,4 +1,4 @@
-if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
+   if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
   console.warn('Overtime Tracker script already loaded. Skipping duplicate execution.');
 } else {
   window.__OVERTIME_TRACKER_SCRIPT_LOADED__ = true;
@@ -11,6 +11,7 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
     const SUPABASE_URL = 'https://qinayntexlzgpxihdutm.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFpbmF5bnRleGx6Z3B4aWhkdXRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1NjI2NjAsImV4cCI6MjEwNTEzODY2MH0.rarroAzcFRpHgWado6Rz5fEI8t4gPhgBieddnchk924';
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    
     let currentUser = null;
     let records = [];
     let currentFilteredRecords = []; 
@@ -19,7 +20,7 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
     let isLoginMode = true; 
     
     // ──────────────────────────────────────────
-    // ২. AUTHENTICATION & RECOVERY LOGIC (Link Based)
+    // ২. AUTHENTICATION & RECOVERY LOGIC
     // ──────────────────────────────────────────
     const authContainer = document.getElementById('authContainer');
     const appContainer = document.getElementById('appContainer');
@@ -85,13 +86,11 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
     }
     document.getElementById('authSubmitBtn').addEventListener('click', handleAuth);
     
-    // Forgot Email
     document.getElementById('forgotEmailLink').addEventListener('click', (e) => {
         e.preventDefault();
         alert("For security reasons, email addresses cannot be recovered from the app. Please check your previous login credentials or contact your HR/Administrator.");
     });
     
-    // Forgot Password -> Send Link
     document.getElementById('forgotPasswordLink').addEventListener('click', (e) => {
         e.preventDefault();
         mainAuthCard.style.display = 'none';
@@ -114,9 +113,7 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
         
         errEl.textContent = "Sending link..."; errEl.style.color = '#6366f1'; errEl.style.display = 'block';
         
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: window.location.origin
-        });
+        const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
         if(error) {
             errEl.textContent = error.message; errEl.style.color = '#ef4444';
         } else {
@@ -125,7 +122,6 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
         }
     });
     
-    // Set New Password
     document.getElementById('setNewPasswordBtn').addEventListener('click', async () => {
         const newPass = document.getElementById('newPasswordInput').value;
         const errEl = document.getElementById('resetError2');
@@ -159,15 +155,11 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
         document.getElementById('pTime').textContent = `${oStart} - ${oEnd}`;
     }
     
-    // Global Auth State Change
     supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
-        authContainer.style.display = 'flex';
-        appContainer.style.display = 'none';
-        mainAuthCard.style.display = 'none';
-        forgotPasswordCard.style.display = 'block';
-        document.getElementById('resetStep1').style.display = 'none';
-        document.getElementById('resetStep2').style.display = 'block';
+        authContainer.style.display = 'flex'; appContainer.style.display = 'none';
+        mainAuthCard.style.display = 'none'; forgotPasswordCard.style.display = 'block';
+        document.getElementById('resetStep1').style.display = 'none'; document.getElementById('resetStep2').style.display = 'block';
         document.getElementById('resetCardTitle').textContent = "Set New Password";
         document.getElementById('resetMsg').textContent = "Please enter your new password below.";
       } else if (session) {
@@ -182,18 +174,14 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
     });
     
     // ──────────────────────────────────────────
-    // Profile Edit & Password Change Inside Dashboard
+    // Profile Edit
     // ──────────────────────────────────────────
     document.getElementById('openEditProfileBtn').addEventListener('click', () => {
         const meta = currentUser.user_metadata || {};
-        document.getElementById('editNick').value = meta.nickName || '';
-        document.getElementById('editFull').value = meta.fullName || '';
-        document.getElementById('editDesig').value = meta.designation || '';
-        document.getElementById('editDept').value = meta.department || '';
-        document.getElementById('editInst').value = meta.institution || '';
-        document.getElementById('editContact').value = meta.contact || '';
-        document.getElementById('editStart').value = meta.officeStart || '';
-        document.getElementById('editEnd').value = meta.officeEnd || '';
+        document.getElementById('editNick').value = meta.nickName || ''; document.getElementById('editFull').value = meta.fullName || '';
+        document.getElementById('editDesig').value = meta.designation || ''; document.getElementById('editDept').value = meta.department || '';
+        document.getElementById('editInst').value = meta.institution || ''; document.getElementById('editContact').value = meta.contact || '';
+        document.getElementById('editStart').value = meta.officeStart || ''; document.getElementById('editEnd').value = meta.officeEnd || '';
         document.getElementById('editPassword').value = ''; 
         document.getElementById('editProfileModal').style.display = 'flex';
     });
@@ -231,7 +219,10 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
     async function fetchRecords() {
       const { data, error } = await supabase.from('ot_records').select('*').order('date', { ascending: true });
       if (data) {
-        records = data.map(d => ({ id: d.id, date: d.date, clockIn: d.clockin, clockOut: d.clockout, notes: d.notes }));
+        // Fetching isFullOT from database
+        records = data.map(d => ({ 
+          id: d.id, date: d.date, clockIn: d.clockin, clockOut: d.clockout, notes: d.notes, isFullOT: d.is_full_ot 
+        }));
         updateFilters();
         if (isInitialLoad) {
           const now = new Date();
@@ -244,9 +235,14 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
     }
     
     async function saveToDatabase(record) {
-      const dbRecord = { id: record.id, user_id: currentUser.id, date: record.date, clockin: record.clockIn, clockout: record.clockOut, notes: record.notes };
+      // Saving is_full_ot to database
+      const dbRecord = { 
+        id: record.id, user_id: currentUser.id, date: record.date, 
+        clockin: record.clockIn, clockout: record.clockOut, notes: record.notes, is_full_ot: record.isFullOT 
+      };
       await supabase.from('ot_records').upsert(dbRecord);
     }
+    
     async function deleteFromDatabase(id) { await supabase.from('ot_records').delete().eq('id', id); }
     
     function calculateOT(record) {
@@ -257,6 +253,11 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
       if (outMinutes < inMinutes) outMinutes += 24 * 60; 
       const totalWorkedMinutes = outMinutes - inMinutes;
     
+      // NEW LOGIC: If Weekend/Holiday switch is ON, count full duration as Overtime
+      if (record.isFullOT) {
+        return { total: totalWorkedMinutes };
+      }
+    
       let requiredMinutes = 9 * 60; 
       if (currentUser && currentUser.user_metadata && currentUser.user_metadata.officeStart && currentUser.user_metadata.officeEnd) {
           const sParts = currentUser.user_metadata.officeStart.split(':').map(Number);
@@ -264,6 +265,7 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
           let sMins = sParts[0] * 60 + sParts[1]; let eMins = eParts[0] * 60 + eParts[1];
           if (eMins < sMins) eMins += 24 * 60; requiredMinutes = eMins - sMins;
       }
+      
       let otTotal = 0;
       if (totalWorkedMinutes > requiredMinutes) otTotal = totalWorkedMinutes - requiredMinutes;
       return { total: otTotal };
@@ -295,10 +297,13 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
         const ot = calculateOT(record); grandTotalMinutes += ot.total;
         const dayName = new Date(record.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' });
         const formattedDate = formatDateToDDMMYYYY(record.date);
+        
+        // Weekend Badge for UI
+        const weekendBadge = record.isFullOT ? `<span style="font-size: 11px; font-weight: 600; background: var(--ring); color: var(--primary); padding: 2px 6px; border-radius: 4px; margin-left: 8px;">Weekend</span>` : '';
     
         const row = document.createElement('tr'); row.style.animationDelay = `${index * 0.08}s`;
         row.innerHTML = `
-          <td><strong>${formattedDate}</strong></td><td>${dayName}</td>
+          <td><strong>${formattedDate}</strong> ${weekendBadge}</td><td>${dayName}</td>
           <td>${formatTimeDisplay(record.clockIn)}</td><td>${formatTimeDisplay(record.clockOut)}</td>
           <td style="font-weight: 600; color: var(--primary);">${formatHHMM(ot.total)}</td>
           <td style="color: var(--muted);">${record.notes || '-'}</td>
@@ -351,20 +356,32 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
       const dateVal = e.target.value;
       document.getElementById('dayName').value = dateVal ? new Date(dateVal + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' }) : '';
     });
+    
     async function handleFormSubmit(e) {
       e.preventDefault();
       if(!currentUser) return alert("Please login first!");
+      
       const record = {
-        id: editingId || Date.now().toString(), date: document.getElementById('date').value,
-        clockIn: document.getElementById('clockIn').value, clockOut: document.getElementById('clockOut').value, notes: document.getElementById('notes').value
+        id: editingId || Date.now().toString(), 
+        date: document.getElementById('date').value,
+        clockIn: document.getElementById('clockIn').value, 
+        clockOut: document.getElementById('clockOut').value, 
+        notes: document.getElementById('notes').value,
+        isFullOT: document.getElementById('isFullOT').checked // Getting Toggle State
       };
+      
       if (editingId) {
         const index = records.findIndex(r => r.id === editingId); if(index !== -1) records[index] = record;
         editingId = null;
       } else { records.push(record); }
+      
       updateFilters(); 
       const [y, m] = record.date.split('-'); document.getElementById('monthFilter').value = parseInt(m); document.getElementById('yearFilter').value = y;
-      filterRecords(); e.target.reset(); document.getElementById('dayName').value = '';
+      filterRecords(); 
+      e.target.reset(); 
+      document.getElementById('dayName').value = '';
+      document.getElementById('isFullOT').checked = false; // Reset toggle
+      
       await saveToDatabase(record); 
     }
     document.getElementById('otForm').addEventListener('submit', handleFormSubmit);
@@ -374,14 +391,22 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
       document.getElementById('date').value = record.date; document.getElementById('clockIn').value = record.clockIn;
       document.getElementById('clockOut').value = record.clockOut; document.getElementById('notes').value = record.notes;
       document.getElementById('dayName').value = new Date(record.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+      document.getElementById('isFullOT').checked = record.isFullOT || false; // Set Toggle State on Edit
       editingId = id; window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+    
     window.deleteRecord = async function(id) {
       if (confirm('Are you sure you want to delete this record?')) {
         records = records.filter(r => r.id !== id); filterRecords(); await deleteFromDatabase(id); 
       }
     }
-    document.getElementById('clearBtn').addEventListener('click', () => { document.getElementById('otForm').reset(); document.getElementById('dayName').value = ''; editingId = null; });
+    
+    document.getElementById('clearBtn').addEventListener('click', () => { 
+      document.getElementById('otForm').reset(); 
+      document.getElementById('dayName').value = ''; 
+      document.getElementById('isFullOT').checked = false;
+      editingId = null; 
+    });
     
     // ──────────────────────────────────────────
     // ৬. PRINT, EXCEL EXPORT & IMPORT
@@ -440,7 +465,13 @@ if (window.__OVERTIME_TRACKER_SCRIPT_LOADED__) {
                 if(p==='PM' && hr!==12) hr+=12; if(p==='AM' && hr===12) hr=0;
                 return String(hr).padStart(2,'0') + ':' + min;
               }
-              const record = { id: Date.now().toString() + Math.random().toString(36).substr(2, 5), date: isoDate, clockIn: parseTime(row['Clock In'] || row['In'] || ''), clockOut: parseTime(row['Clock Out'] || row['Out'] || ''), notes: row['Notes'] || '' };
+              const record = { 
+                id: Date.now().toString() + Math.random().toString(36).substr(2, 5), 
+                date: isoDate, clockIn: parseTime(row['Clock In'] || row['In'] || ''), 
+                clockOut: parseTime(row['Clock Out'] || row['Out'] || ''), 
+                notes: row['Notes'] || '',
+                isFullOT: false // Default false for excel imports
+              };
               records.push(record); await saveToDatabase(record); count++;
             }
             updateFilters(); filterRecords(); alert(`Successfully imported ${count} records from Excel!`);
