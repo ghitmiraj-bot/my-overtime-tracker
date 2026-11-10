@@ -68,9 +68,10 @@
             nickName: document.getElementById('nickNameInput').value, fullName: document.getElementById('fullNameInput').value,
             designation: document.getElementById('designationInput').value, department: document.getElementById('departmentInput').value,
             institution: document.getElementById('institutionInput').value, contact: document.getElementById('contactInput').value,
-            officeStart: document.getElementById('officeStartInput').value, officeEnd: document.getElementById('officeEndInput').value
+            officeStart: document.getElementById('officeStartInput').value, officeEnd: document.getElementById('officeEndInput').value,
+            baseSalary: document.getElementById('baseSalaryInput').value 
           };
-          if(!meta.nickName || !meta.designation || !meta.department || !meta.institution || !meta.contact || !meta.officeStart || !meta.officeEnd) {
+          if(!meta.nickName || !meta.designation || !meta.department || !meta.institution || !meta.contact || !meta.officeStart || !meta.officeEnd || !meta.baseSalary) {
              throw new Error("Please fill up all required fields (*).");
           }
           
@@ -86,25 +87,44 @@
     }
     document.getElementById('authSubmitBtn').addEventListener('click', handleAuth);
     
+    // ENTER KEY PRESS EVENT LOGIC
+    document.getElementById('passwordInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') handleAuth();
+    });
+    document.getElementById('emailInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') handleAuth();
+    });
+
+    // PASSWORD EYE TOGGLE LOGIC
+    document.querySelectorAll('.toggle-password').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const targetId = this.getAttribute('data-target');
+        const input = document.getElementById(targetId);
+        const icon = this.querySelector('i');
+        
+        if (input.type === 'password') {
+          input.type = 'text';
+          icon.setAttribute('data-lucide', 'eye-off');
+        } else {
+          input.type = 'password';
+          icon.setAttribute('data-lucide', 'eye');
+        }
+        lucide.createIcons();
+      });
+    });
+    
     document.getElementById('forgotEmailLink').addEventListener('click', (e) => {
-        e.preventDefault();
-        alert("For security reasons, email addresses cannot be recovered from the app. Please check your previous login credentials or contact your HR/Administrator.");
+        e.preventDefault(); alert("For security reasons, email addresses cannot be recovered from the app. Please check your previous login credentials or contact your HR/Administrator.");
     });
     
     document.getElementById('forgotPasswordLink').addEventListener('click', (e) => {
         e.preventDefault();
-        mainAuthCard.style.display = 'none';
-        forgotPasswordCard.style.display = 'block';
-        document.getElementById('resetStep1').style.display = 'block';
-        document.getElementById('resetStep2').style.display = 'none';
-        document.getElementById('resetCardTitle').textContent = "Reset Password";
-        document.getElementById('resetMsg').textContent = "Enter your email to receive a reset link.";
+        mainAuthCard.style.display = 'none'; forgotPasswordCard.style.display = 'block';
+        document.getElementById('resetStep1').style.display = 'block'; document.getElementById('resetStep2').style.display = 'none';
+        document.getElementById('resetCardTitle').textContent = "Reset Password"; document.getElementById('resetMsg').textContent = "Enter your email to receive a reset link.";
     });
     
-    document.getElementById('backToLoginFromReset').addEventListener('click', () => { 
-        forgotPasswordCard.style.display = 'none'; 
-        mainAuthCard.style.display = 'block'; 
-    });
+    document.getElementById('backToLoginFromReset').addEventListener('click', () => { forgotPasswordCard.style.display = 'none'; mainAuthCard.style.display = 'block'; });
     
     document.getElementById('sendResetCodeBtn').addEventListener('click', async () => {
         const email = document.getElementById('resetEmailInput').value;
@@ -112,14 +132,9 @@
         if(!email) { errEl.textContent = "Enter your email"; errEl.style.display = 'block'; return; }
         
         errEl.textContent = "Sending link..."; errEl.style.color = '#6366f1'; errEl.style.display = 'block';
-        
         const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
-        if(error) {
-            errEl.textContent = error.message; errEl.style.color = '#ef4444';
-        } else {
-            errEl.textContent = "Password reset link sent! Check your email inbox."; 
-            errEl.style.color = '#22c55e';
-        }
+        if(error) { errEl.textContent = error.message; errEl.style.color = '#ef4444'; } 
+        else { errEl.textContent = "Password reset link sent! Check your email inbox."; errEl.style.color = '#22c55e'; }
     });
     
     document.getElementById('setNewPasswordBtn').addEventListener('click', async () => {
@@ -134,11 +149,8 @@
         
         alert("Password updated successfully! Please login with your new password.");
         await supabase.auth.signOut(); 
-        
-        forgotPasswordCard.style.display = 'none'; 
-        mainAuthCard.style.display = 'block';
-        document.getElementById('resetStep2').style.display = 'none';
-        document.getElementById('resetStep1').style.display = 'block';
+        forgotPasswordCard.style.display = 'none'; mainAuthCard.style.display = 'block';
+        document.getElementById('resetStep2').style.display = 'none'; document.getElementById('resetStep1').style.display = 'block';
     });
     
     document.getElementById('logoutBtn').addEventListener('click', async () => await supabase.auth.signOut());
@@ -160,15 +172,13 @@
         authContainer.style.display = 'flex'; appContainer.style.display = 'none';
         mainAuthCard.style.display = 'none'; forgotPasswordCard.style.display = 'block';
         document.getElementById('resetStep1').style.display = 'none'; document.getElementById('resetStep2').style.display = 'block';
-        document.getElementById('resetCardTitle').textContent = "Set New Password";
-        document.getElementById('resetMsg').textContent = "Please enter your new password below.";
+        document.getElementById('resetCardTitle').textContent = "Set New Password"; document.getElementById('resetMsg').textContent = "Please enter your new password below.";
       } else if (session) {
         currentUser = session.user; isInitialLoad = true; 
         authContainer.style.display = 'none'; appContainer.style.display = 'block';
         updateProfileUI(); await fetchRecords();
       } else {
-        currentUser = null;
-        authContainer.style.display = 'flex'; appContainer.style.display = 'none';
+        currentUser = null; authContainer.style.display = 'flex'; appContainer.style.display = 'none';
       }
       lucide.createIcons();
     });
@@ -181,9 +191,18 @@
         document.getElementById('editNick').value = meta.nickName || ''; document.getElementById('editFull').value = meta.fullName || '';
         document.getElementById('editDesig').value = meta.designation || ''; document.getElementById('editDept').value = meta.department || '';
         document.getElementById('editInst').value = meta.institution || ''; document.getElementById('editContact').value = meta.contact || '';
+        document.getElementById('editBaseSalary').value = meta.baseSalary || ''; 
         document.getElementById('editStart').value = meta.officeStart || ''; document.getElementById('editEnd').value = meta.officeEnd || '';
         document.getElementById('editPassword').value = ''; 
         document.getElementById('editProfileModal').style.display = 'flex';
+        
+        // Reset eye icon in edit profile
+        const eyeBtn = document.querySelector('[data-target="editPassword"]');
+        if(eyeBtn) {
+           document.getElementById('editPassword').type = 'password';
+           eyeBtn.querySelector('i').setAttribute('data-lucide', 'eye');
+           lucide.createIcons();
+        }
     });
     document.getElementById('closeProfileBtn').addEventListener('click', () => { document.getElementById('editProfileModal').style.display = 'none'; });
     
@@ -195,6 +214,7 @@
             nickName: document.getElementById('editNick').value, fullName: document.getElementById('editFull').value,
             designation: document.getElementById('editDesig').value, department: document.getElementById('editDept').value,
             institution: document.getElementById('editInst').value, contact: document.getElementById('editContact').value,
+            baseSalary: document.getElementById('editBaseSalary').value, 
             officeStart: document.getElementById('editStart').value, officeEnd: document.getElementById('editEnd').value
         };
         
@@ -219,10 +239,7 @@
     async function fetchRecords() {
       const { data, error } = await supabase.from('ot_records').select('*').order('date', { ascending: true });
       if (data) {
-        // Fetching isFullOT from database
-        records = data.map(d => ({ 
-          id: d.id, date: d.date, clockIn: d.clockin, clockOut: d.clockout, notes: d.notes, isFullOT: d.is_full_ot 
-        }));
+        records = data.map(d => ({ id: d.id, date: d.date, clockIn: d.clockin, clockOut: d.clockout, notes: d.notes, isFullOT: d.is_full_ot }));
         updateFilters();
         if (isInitialLoad) {
           const now = new Date();
@@ -235,11 +252,7 @@
     }
     
     async function saveToDatabase(record) {
-      // Saving is_full_ot to database
-      const dbRecord = { 
-        id: record.id, user_id: currentUser.id, date: record.date, 
-        clockin: record.clockIn, clockout: record.clockOut, notes: record.notes, is_full_ot: record.isFullOT 
-      };
+      const dbRecord = { id: record.id, user_id: currentUser.id, date: record.date, clockin: record.clockIn, clockout: record.clockOut, notes: record.notes, is_full_ot: record.isFullOT };
       await supabase.from('ot_records').upsert(dbRecord);
     }
     
@@ -247,16 +260,12 @@
     
     function calculateOT(record) {
       if (!record.clockIn || !record.clockOut) return { total: 0 };
-      const inParts = record.clockIn.split(':').map(Number);
-      const outParts = record.clockOut.split(':').map(Number);
+      const inParts = record.clockIn.split(':').map(Number); const outParts = record.clockOut.split(':').map(Number);
       let inMinutes = inParts[0] * 60 + inParts[1]; let outMinutes = outParts[0] * 60 + outParts[1];
       if (outMinutes < inMinutes) outMinutes += 24 * 60; 
       const totalWorkedMinutes = outMinutes - inMinutes;
     
-      // NEW LOGIC: If Weekend/Holiday switch is ON, count full duration as Overtime
-      if (record.isFullOT) {
-        return { total: totalWorkedMinutes };
-      }
+      if (record.isFullOT) { return { total: totalWorkedMinutes }; }
     
       let requiredMinutes = 9 * 60; 
       if (currentUser && currentUser.user_metadata && currentUser.user_metadata.officeStart && currentUser.user_metadata.officeEnd) {
@@ -297,8 +306,6 @@
         const ot = calculateOT(record); grandTotalMinutes += ot.total;
         const dayName = new Date(record.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' });
         const formattedDate = formatDateToDDMMYYYY(record.date);
-        
-        // Weekend Badge for UI
         const weekendBadge = record.isFullOT ? `<span style="font-size: 11px; font-weight: 600; background: var(--ring); color: var(--primary); padding: 2px 6px; border-radius: 4px; margin-left: 8px;">Weekend</span>` : '';
     
         const row = document.createElement('tr'); row.style.animationDelay = `${index * 0.08}s`;
@@ -362,12 +369,9 @@
       if(!currentUser) return alert("Please login first!");
       
       const record = {
-        id: editingId || Date.now().toString(), 
-        date: document.getElementById('date').value,
-        clockIn: document.getElementById('clockIn').value, 
-        clockOut: document.getElementById('clockOut').value, 
-        notes: document.getElementById('notes').value,
-        isFullOT: document.getElementById('isFullOT').checked // Getting Toggle State
+        id: editingId || Date.now().toString(), date: document.getElementById('date').value,
+        clockIn: document.getElementById('clockIn').value, clockOut: document.getElementById('clockOut').value, 
+        notes: document.getElementById('notes').value, isFullOT: document.getElementById('isFullOT').checked 
       };
       
       if (editingId) {
@@ -377,10 +381,7 @@
       
       updateFilters(); 
       const [y, m] = record.date.split('-'); document.getElementById('monthFilter').value = parseInt(m); document.getElementById('yearFilter').value = y;
-      filterRecords(); 
-      e.target.reset(); 
-      document.getElementById('dayName').value = '';
-      document.getElementById('isFullOT').checked = false; // Reset toggle
+      filterRecords(); e.target.reset(); document.getElementById('dayName').value = ''; document.getElementById('isFullOT').checked = false;
       
       await saveToDatabase(record); 
     }
@@ -391,21 +392,64 @@
       document.getElementById('date').value = record.date; document.getElementById('clockIn').value = record.clockIn;
       document.getElementById('clockOut').value = record.clockOut; document.getElementById('notes').value = record.notes;
       document.getElementById('dayName').value = new Date(record.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' });
-      document.getElementById('isFullOT').checked = record.isFullOT || false; // Set Toggle State on Edit
+      document.getElementById('isFullOT').checked = record.isFullOT || false;
       editingId = id; window.scrollTo({ top: 0, behavior: 'smooth' });
     }
     
     window.deleteRecord = async function(id) {
-      if (confirm('Are you sure you want to delete this record?')) {
-        records = records.filter(r => r.id !== id); filterRecords(); await deleteFromDatabase(id); 
-      }
+      if (confirm('Are you sure you want to delete this record?')) { records = records.filter(r => r.id !== id); filterRecords(); await deleteFromDatabase(id); }
     }
     
     document.getElementById('clearBtn').addEventListener('click', () => { 
-      document.getElementById('otForm').reset(); 
-      document.getElementById('dayName').value = ''; 
-      document.getElementById('isFullOT').checked = false;
-      editingId = null; 
+      document.getElementById('otForm').reset(); document.getElementById('dayName').value = ''; document.getElementById('isFullOT').checked = false; editingId = null; 
+    });
+
+    // ──────────────────────────────────────────
+    // ৮. OT SALARY CALCULATION
+    // ──────────────────────────────────────────
+    document.getElementById('calcSalaryBtn').addEventListener('click', () => {
+        const meta = currentUser.user_metadata || {};
+        const baseSalary = parseFloat(meta.baseSalary);
+
+        if(!baseSalary || isNaN(baseSalary)) {
+            alert("Please update your profile and set your 'Total Monthly Salary' first!"); return;
+        }
+
+        let sMins = 0, eMins = 0;
+        if (meta.officeStart && meta.officeEnd) {
+            const sParts = meta.officeStart.split(':').map(Number);
+            const eParts = meta.officeEnd.split(':').map(Number);
+            sMins = sParts[0] * 60 + sParts[1]; 
+            eMins = eParts[0] * 60 + eParts[1];
+            if (eMins < sMins) eMins += 24 * 60;
+        } else {
+            alert("Please set your Office Start and End time in your profile."); return;
+        }
+
+        const officeHours = (eMins - sMins) / 60;
+        if(officeHours <= 0) { alert("Invalid office hours. Please check your profile."); return; }
+
+        let totalOTMinutes = 0;
+        currentFilteredRecords.forEach(r => {
+            const ot = calculateOT(r);
+            totalOTMinutes += ot.total;
+        });
+
+        const dailySalary = baseSalary / 30;
+        const hourlySalary = dailySalary / officeHours;
+        const totalOTSalary = hourlySalary * (totalOTMinutes / 60);
+
+        document.getElementById('salBase').textContent = `৳ ${baseSalary.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        document.getElementById('salDaily').textContent = `৳ ${dailySalary.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        document.getElementById('salHourly').textContent = `৳ ${hourlySalary.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} / hr`;
+        document.getElementById('salTotalOT').textContent = formatHHMM(totalOTMinutes);
+        document.getElementById('salAmount').textContent = `৳ ${totalOTSalary.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+        document.getElementById('salaryModal').style.display = 'flex';
+    });
+
+    document.getElementById('closeSalaryBtn').addEventListener('click', () => {
+        document.getElementById('salaryModal').style.display = 'none';
     });
     
     // ──────────────────────────────────────────
@@ -470,7 +514,7 @@
                 date: isoDate, clockIn: parseTime(row['Clock In'] || row['In'] || ''), 
                 clockOut: parseTime(row['Clock Out'] || row['Out'] || ''), 
                 notes: row['Notes'] || '',
-                isFullOT: false // Default false for excel imports
+                isFullOT: false 
               };
               records.push(record); await saveToDatabase(record); count++;
             }
