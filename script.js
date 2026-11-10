@@ -82,33 +82,43 @@
           authError.style.color = '#22c55e';
         }
       } catch (err) {
-        authError.textContent = err.message; authError.style.color = '#ef4444';
+        const errorCode = err && err.code;
+        if (errorCode === 'over_email_send_rate_limit' || /email rate limit exceeded/i.test(err.message || '')) {
+          authError.textContent = "Signup email limit reached. Supabase's built-in email service allows only 2 emails per hour for the whole project. Please wait, or ask the administrator to configure a custom SMTP email provider.";
+        } else if (errorCode === 'over_request_rate_limit') {
+          authError.textContent = 'Too many authentication attempts. Please wait a few minutes and try again.';
+        } else {
+          authError.textContent = err.message || 'Authentication failed. Please try again.';
+        }
+        authError.style.color = '#ef4444';
       }
     }
     document.getElementById('authSubmitBtn').addEventListener('click', handleAuth);
-    
-    // ENTER KEY PRESS EVENT LOGIC
-    document.getElementById('passwordInput').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') handleAuth();
-    });
-    document.getElementById('emailInput').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') handleAuth();
+
+    // Submit login/signup when Enter is pressed in either auth field.
+    ['emailInput', 'passwordInput'].forEach(id => {
+      document.getElementById(id).addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleAuth();
+        }
+      });
     });
 
-    // PASSWORD EYE TOGGLE LOGIC
+    // Lucide replaces the original <i> element with an <svg>.
+    // Replace the button contents instead of trying to update a removed <i>.
     document.querySelectorAll('.toggle-password').forEach(btn => {
-      btn.addEventListener('click', function() {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
         const targetId = this.getAttribute('data-target');
         const input = document.getElementById(targetId);
-        const icon = this.querySelector('i');
-        
-        if (input.type === 'password') {
-          input.type = 'text';
-          icon.setAttribute('data-lucide', 'eye-off');
-        } else {
-          input.type = 'password';
-          icon.setAttribute('data-lucide', 'eye');
-        }
+        if (!input) return;
+
+        const showPassword = input.type === 'password';
+        input.type = showPassword ? 'text' : 'password';
+        this.setAttribute('aria-label', showPassword ? 'Hide password' : 'Show password');
+        this.setAttribute('title', showPassword ? 'Hide password' : 'Show password');
+        this.innerHTML = `<i data-lucide="${showPassword ? 'eye-off' : 'eye'}"></i>`;
         lucide.createIcons();
       });
     });
@@ -406,45 +416,78 @@
 
     // ──────────────────────────────────────────
     // ৮. OT SALARY CALCULATION
+    // Policy: regular-day OT is converted at 7h 30m per day.
+    // A marked Friday/government holiday earns one full daily salary.
+    // Daily salary uses the actual number of days in the selected month.
     // ──────────────────────────────────────────
     document.getElementById('calcSalaryBtn').addEventListener('click', () => {
+        if (!currentUser) {
+            alert('Please login first.');
+            return;
+        }
+
         const meta = currentUser.user_metadata || {};
-        const baseSalary = parseFloat(meta.baseSalary);
-
-        if(!baseSalary || isNaN(baseSalary)) {
-            alert("Please update your profile and set your 'Total Monthly Salary' first!"); return;
+        const baseSalary = Number(meta.baseSalary);
+        if (!Number.isFinite(baseSalary) || baseSalary <= 0) {
+            alert("Please update your profile and set your 'Total Monthly Salary' first!");
+            return;
         }
 
-        let sMins = 0, eMins = 0;
-        if (meta.officeStart && meta.officeEnd) {
-            const sParts = meta.officeStart.split(':').map(Number);
-            const eParts = meta.officeEnd.split(':').map(Number);
-            sMins = sParts[0] * 60 + sParts[1]; 
-            eMins = eParts[0] * 60 + eParts[1];
-            if (eMins < sMins) eMins += 24 * 60;
-        } else {
-            alert("Please set your Office Start and End time in your profile."); return;
-        }
+        const selectedMonth = document.getElementById('monthFilter').value;
+        const selectedYear = document.getElementById('yearFilter').value;
+        let regularOTMinutes = 0;
+        let holidayDays = 0;
 
-        const officeHours = (eMins - sMins) / 60;
-        if(officeHours <= 0) { alert("Invalid office hours. Please check your profile."); return; }
-
-        let totalOTMinutes = 0;
-        currentFilteredRecords.forEach(r => {
-            const ot = calculateOT(r);
-            totalOTMinutes += ot.total;
+        currentFilteredRecords.forEach(record => {
+            const ot = calculateOT(record);
+            if (record.isFullOT) {
+                // One day salary for each recorded Friday/government holiday worked.
+                holidayDays += 1;
+            } else {
+                regularOTMinutes += ot.total;
+            }
         });
 
-        const dailySalary = baseSalary / 30;
-        const hourlySalary = dailySalary / officeHours;
-        const totalOTSalary = hourlySalary * (totalOTMinutes / 60);
+        // For a single selected month, use its exact calendar-day count.
+        // For All Months, calculate each record's daily rate using its own month.
+        let regularOTAmount = 0;
+        let holidayAmount = 0;
+        if (selectedMonth && selectedYear) {
+            const daysInMonth = new Date(Number(selectedYear), Number(selectedMonth), 0).getDate();
+            const dailySalary = baseSalary / daysInMonth;
+            regularOTAmount = (regularOTMinutes / 450) * dailySalary;
+            holidayAmount = holidayDays * dailySalary;
+        } else {
+            const monthGroups = new Map();
+            currentFilteredRecords.forEach(record => {
+                const [year, month] = record.date.split('-');
+                const key = `${year}-${month}`;
+                if (!monthGroups.has(key)) monthGroups.set(key, { regularMinutes: 0, holidays: 0, year: Number(year), month: Number(month) });
+                const group = monthGroups.get(key);
+                if (record.isFullOT) group.holidays += 1;
+                else group.regularMinutes += calculateOT(record).total;
+            });
+            for (const group of monthGroups.values()) {
+                const daysInMonth = new Date(group.year, group.month, 0).getDate();
+                const dailySalary = baseSalary / daysInMonth;
+                regularOTAmount += (group.regularMinutes / 450) * dailySalary;
+                holidayAmount += group.holidays * dailySalary;
+            }
+        }
+
+        const dailyRateForDisplay = selectedMonth && selectedYear
+            ? baseSalary / new Date(Number(selectedYear), Number(selectedMonth), 0).getDate()
+            : baseSalary / 30;
+        const totalOTMinutes = regularOTMinutes + (holidayDays * 450);
+        const totalAmount = regularOTAmount + holidayAmount;
+        const equivalentHours = Math.floor(totalOTMinutes / 60);
+        const equivalentMinutes = totalOTMinutes % 60;
 
         document.getElementById('salBase').textContent = `৳ ${baseSalary.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-        document.getElementById('salDaily').textContent = `৳ ${dailySalary.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-        document.getElementById('salHourly').textContent = `৳ ${hourlySalary.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} / hr`;
-        document.getElementById('salTotalOT').textContent = formatHHMM(totalOTMinutes);
-        document.getElementById('salAmount').textContent = `৳ ${totalOTSalary.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-
+        document.getElementById('salDaily').textContent = `৳ ${dailyRateForDisplay.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        document.getElementById('salHourly').textContent = `৳ ${(dailyRateForDisplay / 7.5).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} / hr`;
+        document.getElementById('salTotalOT').textContent = `${equivalentHours}h ${String(equivalentMinutes).padStart(2, '0')}m`;
+        document.getElementById('salAmount').textContent = `৳ ${totalAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
         document.getElementById('salaryModal').style.display = 'flex';
     });
 
