@@ -416,10 +416,10 @@
 
     // ──────────────────────────────────────────
     // ৮. OT SALARY CALCULATION
-    // Policy: regular-day OT is converted at 7h 30m per day.
-    // A marked Friday/government holiday earns one full daily salary.
-    // Daily salary uses the actual number of days in the selected month.
-    // ──────────────────────────────────────────
+    // Policy: Daily salary = monthly salary / 30.
+    // Hourly rate = daily salary / scheduled office-hour duration
+    // (officeStart to officeEnd from the user's profile, NOT clock-in/out).
+    // Pay every recorded OT minute equally, including weekly/government holidays.
     document.getElementById('calcSalaryBtn').addEventListener('click', () => {
         if (!currentUser) {
             alert('Please login first.');
@@ -433,60 +433,47 @@
             return;
         }
 
-        const selectedMonth = document.getElementById('monthFilter').value;
-        const selectedYear = document.getElementById('yearFilter').value;
-        let regularOTMinutes = 0;
-        let holidayDays = 0;
-
-        currentFilteredRecords.forEach(record => {
-            const ot = calculateOT(record);
-            if (record.isFullOT) {
-                // One day salary for each recorded Friday/government holiday worked.
-                holidayDays += 1;
-            } else {
-                regularOTMinutes += ot.total;
-            }
-        });
-
-        // For a single selected month, use its exact calendar-day count.
-        // For All Months, calculate each record's daily rate using its own month.
-        let regularOTAmount = 0;
-        let holidayAmount = 0;
-        if (selectedMonth && selectedYear) {
-            const daysInMonth = new Date(Number(selectedYear), Number(selectedMonth), 0).getDate();
-            const dailySalary = baseSalary / daysInMonth;
-            regularOTAmount = (regularOTMinutes / 450) * dailySalary;
-            holidayAmount = holidayDays * dailySalary;
-        } else {
-            const monthGroups = new Map();
-            currentFilteredRecords.forEach(record => {
-                const [year, month] = record.date.split('-');
-                const key = `${year}-${month}`;
-                if (!monthGroups.has(key)) monthGroups.set(key, { regularMinutes: 0, holidays: 0, year: Number(year), month: Number(month) });
-                const group = monthGroups.get(key);
-                if (record.isFullOT) group.holidays += 1;
-                else group.regularMinutes += calculateOT(record).total;
-            });
-            for (const group of monthGroups.values()) {
-                const daysInMonth = new Date(group.year, group.month, 0).getDate();
-                const dailySalary = baseSalary / daysInMonth;
-                regularOTAmount += (group.regularMinutes / 450) * dailySalary;
-                holidayAmount += group.holidays * dailySalary;
-            }
+        if (!meta.officeStart || !meta.officeEnd) {
+            alert('Please set your Office Start Time and Office End Time in your profile first.');
+            return;
         }
 
-        const dailyRateForDisplay = selectedMonth && selectedYear
-            ? baseSalary / new Date(Number(selectedYear), Number(selectedMonth), 0).getDate()
-            : baseSalary / 30;
-        const totalOTMinutes = regularOTMinutes + (holidayDays * 450);
-        const totalAmount = regularOTAmount + holidayAmount;
-        const equivalentHours = Math.floor(totalOTMinutes / 60);
-        const equivalentMinutes = totalOTMinutes % 60;
+        const startParts = meta.officeStart.split(':').map(Number);
+        const endParts = meta.officeEnd.split(':').map(Number);
+        if (startParts.length < 2 || endParts.length < 2 ||
+            startParts.some(Number.isNaN) || endParts.some(Number.isNaN)) {
+            alert('Your office start/end time is invalid. Please update your profile.');
+            return;
+        }
+
+        const startMinutes = startParts[0] * 60 + startParts[1];
+        let endMinutes = endParts[0] * 60 + endParts[1];
+        if (endMinutes < startMinutes) endMinutes += 24 * 60; // supports overnight shifts
+        const officeMinutes = endMinutes - startMinutes;
+        if (officeMinutes <= 0) {
+            alert('Office End Time must be different from Office Start Time.');
+            return;
+        }
+
+        // The active filter determines which entries are included, but salary
+        // rates are always based on monthly salary / 30 and scheduled office hours.
+        let totalOTMinutes = 0;
+        currentFilteredRecords.forEach(record => {
+            totalOTMinutes += calculateOT(record).total;
+        });
+
+        const dailySalary = baseSalary / 30;
+        const officeHours = officeMinutes / 60;
+        const hourlyRate = dailySalary / officeHours;
+        const totalAmount = (totalOTMinutes / 60) * hourlyRate;
+
+        const totalHours = Math.floor(totalOTMinutes / 60);
+        const totalMinutes = totalOTMinutes % 60;
 
         document.getElementById('salBase').textContent = `৳ ${baseSalary.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-        document.getElementById('salDaily').textContent = `৳ ${dailyRateForDisplay.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-        document.getElementById('salHourly').textContent = `৳ ${(dailyRateForDisplay / 7.5).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} / hr`;
-        document.getElementById('salTotalOT').textContent = `${equivalentHours}h ${String(equivalentMinutes).padStart(2, '0')}m`;
+        document.getElementById('salDaily').textContent = `৳ ${dailySalary.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        document.getElementById('salHourly').textContent = `৳ ${hourlyRate.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} / hr`;
+        document.getElementById('salTotalOT').textContent = `${totalHours}h ${String(totalMinutes).padStart(2, '0')}m`;
         document.getElementById('salAmount').textContent = `৳ ${totalAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
         document.getElementById('salaryModal').style.display = 'flex';
     });
