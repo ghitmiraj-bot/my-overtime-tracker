@@ -45,7 +45,12 @@
           <div class="form-group"><label>Department *</label><input type="text" id="departmentInput" placeholder="e.g. IT"></div>
         </div>
         <div class="form-group" style="margin-top: 12px;"><label>Institution Name *</label><input type="text" id="institutionInput" placeholder="Where do you work?"></div>
-        <div class="form-group" style="margin-top: 12px;"><label>Contact Number *</label><input type="text" id="contactInput" placeholder="Phone Number"></div>
+        
+        <div class="form-grid" style="margin-top: 12px;">
+          <div class="form-group"><label>Contact Number *</label><input type="text" id="contactInput" placeholder="Phone Number"></div>
+          <div class="form-group"><label>Total Monthly Salary *</label><input type="number" id="baseSalaryInput" placeholder="e.g. 50000"></div>
+        </div>
+
         <div class="form-grid" style="margin-top: 12px;">
           <div class="form-group"><label>Office Start Time *</label><input type="time" id="officeStartInput"></div>
           <div class="form-group"><label>Office End Time *</label><input type="time" id="officeEndInput"></div>
@@ -75,7 +80,7 @@
         <button id="backToLoginFromReset" class="btn-ghost" style="width: 100%; margin-top: 10px;">Back to Login</button>
       </div>
 
-      <!-- Step 2: Set New Password (Appears after clicking link) -->
+      <!-- Step 2: Set New Password -->
       <div id="resetStep2" style="display: none;">
         <div class="form-group"><label>New Password</label><input type="password" id="newPasswordInput" placeholder="••••••••"></div>
         <div id="resetError2" style="font-size: 13px; margin-top: 15px; display: none;"></div>
@@ -116,14 +121,17 @@
       <div class="summary-item"><div class="label"><i data-lucide="clock"></i> Total Overtime</div><div class="value" id="totalOvertime">00:00</div></div>
     </div>
 
-    <!-- Controls -->
+    <!-- Controls & Actions -->
     <div class="controls-section">
       <div class="filters">
         <div class="select-wrapper"><select id="monthFilter"></select><i data-lucide="chevron-down" class="select-icon"></i></div>
         <div class="select-wrapper"><select id="yearFilter"></select><i data-lucide="chevron-down" class="select-icon"></i></div>
       </div>
       <div class="actions">
-        <button id="printBtn" class="btn-primary"><i data-lucide="printer"></i> Print</button>
+        <!-- New Salary Calculation Button -->
+        <button id="calcSalaryBtn" class="btn-primary" style="background-color: #10b981; color: white;"><i data-lucide="calculator"></i> Calc. Salary</button>
+        
+        <button id="printBtn" class="btn-outline"><i data-lucide="printer"></i> Print</button>
         <button id="exportExcel" class="btn-outline"><i data-lucide="download"></i> Excel</button>
         <label class="btn-outline cursor-pointer">
           <i data-lucide="upload"></i> Import
@@ -197,6 +205,8 @@
           <div class="form-group"><label>Department</label><input type="text" id="editDept" required></div>
           <div class="form-group"><label>Institution Name</label><input type="text" id="editInst" required></div>
           <div class="form-group"><label>Contact</label><input type="text" id="editContact" required></div>
+          <div class="form-group"><label>Total Monthly Salary</label><input type="number" id="editBaseSalary" required></div>
+          <div class="form-group"></div> <!-- Empty div for layout alignment -->
           <div class="form-group"><label>Office Start Time</label><input type="time" id="editStart" required></div>
           <div class="form-group"><label>Office End Time</label><input type="time" id="editEnd" required></div>
         </div>
@@ -211,6 +221,38 @@
           <button type="submit" id="saveProfileBtn" class="btn-primary">Save Changes</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Salary Calculation Result Modal -->
+  <div id="salaryModal" class="modal-overlay" style="display: none;">
+    <div class="card modal-content" style="max-width: 450px; text-align: center;">
+      <div style="display: flex; justify-content: center; margin-bottom: 16px;">
+        <div style="background: #d1fae5; color: #10b981; padding: 12px; border-radius: 50%;">
+          <i data-lucide="banknote" style="width: 32px; height: 32px;"></i>
+        </div>
+      </div>
+      <h2 style="margin-top: 0; margin-bottom: 24px; font-size: 22px;">Overtime Payment</h2>
+      
+      <div style="background: var(--background); padding: 20px; border-radius: 12px; text-align: left; margin-bottom: 24px;">
+         <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px;">
+            <span style="color: var(--muted);">Base Salary:</span> <strong id="salBase">৳ 0.00</strong>
+         </div>
+         <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px;">
+            <span style="color: var(--muted);">Daily Rate (÷30):</span> <strong id="salDaily">৳ 0.00</strong>
+         </div>
+         <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px;">
+            <span style="color: var(--muted);">Hourly Rate:</span> <strong id="salHourly">৳ 0.00</strong>
+         </div>
+         <div style="display: flex; justify-content: space-between; font-size: 14px; border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px;">
+            <span style="color: var(--muted);">Total OT Hours:</span> <strong id="salTotalOT" style="color: var(--primary);">00h 00m</strong>
+         </div>
+      </div>
+
+      <h3 style="margin: 0; font-size: 15px; color: var(--muted);">Total Overtime Amount</h3>
+      <h1 id="salAmount" style="margin: 8px 0 24px 0; color: #10b981; font-size: 42px; letter-spacing: -1px;">৳ 0.00</h1>
+      
+      <button id="closeSalaryBtn" class="btn-outline" style="width: 100%;">Close</button>
     </div>
   </div>
 
