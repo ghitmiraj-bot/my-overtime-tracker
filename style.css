@@ -315,4 +315,29 @@ input:checked + .slider {
 input:checked + .slider:before {
   transform: translateX(22px);
 }
-
+/* --- Password Eye Toggle Styles --- */
+.password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.password-wrapper input {
+  padding-right: 40px !important;
+}
+.toggle-password {
+  position: absolute;
+  right: 12px;
+  background: transparent !important;
+  border: none !important;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none !important;
+}
+.toggle-password:hover {
+  color: var(--primary);
+  transform: none !important;
+}
